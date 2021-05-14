@@ -13,9 +13,12 @@ mainWindow.webContents.on('dom-ready', () => {
           const style = document.createElement('style');
           style.innerHTML = userCss;
           document.head.appendChild(style);
+          
+          **CUSTOM USER JAVASCRIPT**
           `);
     });mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options);
 ```
 - - Ensure that the replacement has not already happened
+- - Allow the user to add additional javascript to the file?
 - Save the core.asar file again
 - Reload Discord
