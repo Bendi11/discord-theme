@@ -1,4 +1,5 @@
-## Procedure:
+## Procedure: 
+- For injecting CSS: See [this](https://gist.github.com/ebith/fa0381b8b386c349da4dd474957791f9)
 - Find file core.asar in directory %APPDATA%\Discord\app-1.0.9001\modules\discord_desktop_core-1\discord_desktop_core
 - - Make a backup of the file if requested
 - Find the string 
