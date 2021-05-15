@@ -1,7 +1,7 @@
 use std::fs;
 
 /// The path to the configuration file that we will load options from
-const CONFIG_PATH: &'static str = "/config.toml";
+const CONFIG_PATH: &'static str = "config.toml";
 
 /// The `Config` struct holds all configuration options given as a .toml file to the 
 /// program, or default values.
