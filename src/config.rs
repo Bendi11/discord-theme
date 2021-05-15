@@ -20,7 +20,7 @@ impl Config {
             make-backup = true
         };
         //Write the TOML configuration to the default file location
-        std::fs::write(CONFIG_PATH, toml::to_vec(&toml).unwrap());
+        std::fs::write(CONFIG_PATH, toml::to_vec(&toml).unwrap()).unwrap();
         Self {
             customjs: "".into(),
             make_backup: true,
