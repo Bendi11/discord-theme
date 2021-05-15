@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 toml = "0.5.8" # For config file format
 console = "0.14.1" # For formatted console
+semver = "0.11" # For parsing the newest discord version string
 
 [profile.release]
 lto = true

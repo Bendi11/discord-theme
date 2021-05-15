@@ -15,7 +15,12 @@ pub struct Config {
 impl Config {
     /// Create a default config file with default values and return a default instance of self
     fn default_file() -> Self {
-        
+        let toml = toml::toml!{
+            custom-js = ""
+            make-backup = true
+        };
+        //Write the TOML configuration to the default file location
+        std::fs::write(CONFIG_PATH, toml::to_vec(&toml).unwrap());
         Self {
             customjs: "".into(),
             make_backup: true,
@@ -24,23 +29,21 @@ impl Config {
 
     /// Load a configuration file from the `CONFIG_PATH` file or load defaults and create the file
     pub fn load() -> Self {
-        match fs::read(CONFIG_PATH) {
+        match fs::read_to_string(CONFIG_PATH) {
             Ok(buf) => {
-                let config = match toml::from_slice(buf.as_slice()) { //Make a toml from the file
+                let config = match buf.parse::<toml::Value>() { //Make a toml from the file's contents
                     Ok(toml) => toml, //Return the TOML value
                     Err(_)   => return Self::default_file() //Return a default file if there was an error
                 };
                 
 
                 Self {
-
+                    customjs: config["custom-js"].as_str().unwrap_or("").to_owned(), //Set an empty custom Javascript string
+                    make_backup: config["make-backup"].as_bool().unwrap_or(false), //Get wether or not to make a backup of the electron file
                 }
             },
             Err(_) => {
-                let config = toml::toml!(
-
-                );
-                fs::File::create(CONFIG_PATH).unwrap();
+                Self::default_file() //Create the default file and return the defualt instance of Self
             }
         }
     }
