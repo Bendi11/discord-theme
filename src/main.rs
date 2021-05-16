@@ -19,6 +19,7 @@ fn prompt_quit(errcode: i32) -> ! {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     //Set a panic handler for panic printing without weird debug info
     std::panic::set_hook(Box::new(|pinfo: &std::panic::PanicInfo| {
+        eprintln!("In {}", pinfo.location().unwrap());
         if let Some(s) = pinfo.payload().downcast_ref::<String>() {
             eprintln!("A fatal error occurred when executing program: {}", style(s).red());
         } else if let Some(s) = pinfo.payload().downcast_ref::<&str>() {
