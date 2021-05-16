@@ -18,6 +18,10 @@ mainWindow.webContents.on('dom-ready', () => {
           **CUSTOM USER JAVASCRIPT**
           `);
     });mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options);
+
+mainWindow.webContents.on('dom-ready', () => {
+  mainWindow.webContents.executeJavaScript(`${cssInjection}`);
+});mainWindow.webContents.
 ```
   - Ensure that the replacement has not already happened
   - Allow the user to add additional javascript to the file?

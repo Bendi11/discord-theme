@@ -6,7 +6,6 @@ use console::{style};
 use std::io::{Read, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::fs;
-use rasar::list;
 
 /// Prompt the user to quit the application by entering any character, used to make sure that the program doesn't immediately exit
 /// on error
@@ -49,17 +48,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     "
     mainWindow.webContents.on('dom-ready', () => {{
         mainWindow.webContents.executeJavaScript(`
-            let CSS_INJECTION_USER_CSS = 
-            \\`
-            {css}
-            \\`;
+            let CSS_INJECTION_USER_CSS =  \\`{css}\\`;
             const style = document.createElement('style');
             style.innerHTML = CSS_INJECTION_USER_CSS;
             document.head.appendChild(style);
-            
             {js}
-            `);
-    }});mainWindow.webContents.send(`${{DISCORD_NAMESPACE}}${{event}}`, ...options);
+        `);
+    }});mainWindow.webContents.
     ", 
     css = theme,
     js = cfg.customjs
@@ -104,29 +99,33 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     path.push("core.asar"); //Push the core file name to the path
+    
+    //Unpack the asar archive
+    rasar::extract(path.to_str().unwrap(), "./coreasar")?;
 
-    list(path.to_str().unwrap()).unwrap();
+    //Make a path to the unpacked js file
+    let main_file = PathBuf::from("./coreasar/app/mainScreen.js");
 
     //Open the asar electron archive in a buffered reader
-    let mut asar = BufReader::new( fs::OpenOptions::new()
+    let mut js = BufReader::new( fs::OpenOptions::new()
         .read(true)
-        .open(&path)
-        .expect(format!("Failed to open discord asar file from {}", path.display()).as_str())
+        .open(&main_file)
+        .expect(format!("Failed to open discord asar file from {}", main_file.display()).as_str())
     );
 
-    let mut asarstr = Vec::new();
-    asar.read_to_end(&mut asarstr)?; //Read the file into a string for string replacement
-    let mut asarstr = unsafe { String::from_utf8_unchecked(asarstr) }; //Turn the bytes into an ASCII string
+    let mut jsstr = Vec::new();
+    js.read_to_end(&mut jsstr)?; //Read the file into a string for string replacement
+    let mut jsstr = unsafe { String::from_utf8_unchecked(jsstr) }; //Turn the bytes into an ASCII string 
  
     //If the injection string is already in the asar archive then don't replace anything but the user CSS
-    match asarstr.find("CSS_INJECTION_USER_CSS") {
+    match jsstr.find("CSS_INJECTION_USER_CSS") {
         Some(mut idx) => {
             println!("CSS injection string already present, replacing contents with new CSS theme..."); //Print that we already did this once
 
             //Get to the index of the first string quote
             let begin = loop {
                 //If we reached the ES6 raw string literal return the idx
-                if asarstr.get(idx..idx+1).unwrap() == "`" {
+                if jsstr.get(idx..idx+1).unwrap() == "`" {
                     idx += 1;
                     break idx;
                 }
@@ -135,26 +134,28 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
             let end = loop {
                 //If we reached the ES6 raw string literal return the idx
-                if asarstr.get(idx..idx+1).unwrap() == "`" {
+                if jsstr.get(idx..idx+1).unwrap() == "`" {
                     idx+=1;
                     break idx;
                 }
                 idx += 1;
             };
 
-            asarstr.replace_range((begin  + 1)..end, &theme); //Replace the user CSS with the new user CSS
+            jsstr.replace_range((begin)..end, &theme); //Replace the user CSS with the new user CSS
         },
         //If there is no injection string then replace the strings with an injection string
         None => {
             //Replace the string with the CSS injection string inserted
-            asarstr = asarstr.replacen("mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options);", &css, 1);
+            jsstr = jsstr.replacen("mainWindow.webContents.", &css, 1);
             println!("{}", style("Added user CSS theme to Discord!").green()); //Print the success message
         }
     }
 
-    let mut asar = BufWriter::new( fs::File::create(path)? ); //Open a new buffer writer to write the contents of the file again
-    asar.write_all(asarstr.as_bytes())?; //Write all bytes to the file
+    let mut asar = BufWriter::new( fs::File::create(main_file)? ); //Open a new buffer writer to write the contents of the file again
+    asar.write_all(jsstr.as_bytes())?; //Write all bytes to the file
+    drop(asar);
     println!("{}", style("Successfully inserted user CSS into Discord!").green());
+    rasar::pack("./coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
     prompt_quit(0);
 }
 
