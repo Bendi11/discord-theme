@@ -4,7 +4,7 @@
 - - Make a backup of the file if requested
 - Find the string 
 ```js 
-mainWindow.webContents.send(\`${DISCORD_NAMESPACE}${event}\`, ...options); 
+mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options); 
 ``` 
 in the file and replace it with:
 ```js
@@ -23,3 +23,4 @@ mainWindow.webContents.on('dom-ready', () => {
   - Allow the user to add additional javascript to the file?
 - Save the core.asar file again
 - Reload Discord
+

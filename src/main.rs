@@ -3,9 +3,10 @@ use config::Config;
 
 use std::env;
 use console::{style};
-use std::io::Read;
+use std::io::{Read, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::fs;
+use rasar::list;
 
 /// Prompt the user to quit the application by entering any character, used to make sure that the program doesn't immediately exit
 /// on error
@@ -16,18 +17,53 @@ fn prompt_quit(errcode: i32) -> ! {
     std::process::exit(errcode);
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error> > {
+fn run() -> Result<(), Box<dyn std::error::Error>> {
+    //Set a panic handler for panic printing without weird debug info
+    std::panic::set_hook(Box::new(|pinfo: &std::panic::PanicInfo| {
+        if let Some(s) = pinfo.payload().downcast_ref::<String>() {
+            eprintln!("A fatal error occurred when executing program: {}", style(s).red());
+        } else if let Some(s) = pinfo.payload().downcast_ref::<&str>() {
+            eprintln!("A fatal error occurred when executing program: {}", style(s).red());
+        } else {
+            eprintln!("{}", style("An unknown error occurred when executing").red());
+        }
+        prompt_quit(-1);
+    }));
+
     //Get the input file path from the arguments
     let css_path = match env::args().nth(1) {
         Some(p) => p,
         //No input path given, print an error and exit
         None    => {
             //Print the error message in red
-            println!("{}", style("No input given! Drag and drop a .css theme file onto the executable or pass a path as an argument on the command line.").red());
+            eprintln!("{}", style("No input given! Drag and drop a .css theme file onto the executable or pass a path as an argument on the command line.").red());
             prompt_quit(-1);
         }
     };
     let cfg = Config::load(); //Load the configuration toml file or create a default one
+    
+    let theme = std::fs::read_to_string(&css_path).expect(format!("Failed to read custom theme CSS file: {:?}", css_path).as_str()); //Read the user CSS theme to a string
+    println!("loaded cfg and theme");
+    //Make a css injection javascript
+    let css = format!(
+    "
+    mainWindow.webContents.on('dom-ready', () => {{
+        mainWindow.webContents.executeJavaScript(`
+            let CSS_INJECTION_USER_CSS = 
+            \\`
+            {css}
+            \\`;
+            const style = document.createElement('style');
+            style.innerHTML = CSS_INJECTION_USER_CSS;
+            document.head.appendChild(style);
+            
+            {js}
+            `);
+    }});mainWindow.webContents.send(`${{DISCORD_NAMESPACE}}${{event}}`, ...options);
+    ", 
+    css = theme,
+    js = cfg.customjs
+    );
 
     #[cfg(all(target_os="windows"))]
     let mut path: PathBuf = PathBuf::from(format!("{}\\Discord", env::var("LOCALAPPDATA")?)); //Get the path to discord's modules directory
@@ -67,6 +103,61 @@ fn main() -> Result<(), Box<dyn std::error::Error> > {
         }
     }
 
+    path.push("core.asar"); //Push the core file name to the path
 
-    Ok(())
+    list(path.to_str().unwrap()).unwrap();
+
+    //Open the asar electron archive in a buffered reader
+    let mut asar = BufReader::new( fs::OpenOptions::new()
+        .read(true)
+        .open(&path)
+        .expect(format!("Failed to open discord asar file from {}", path.display()).as_str())
+    );
+
+    let mut asarstr = Vec::new();
+    asar.read_to_end(&mut asarstr)?; //Read the file into a string for string replacement
+    let mut asarstr = unsafe { String::from_utf8_unchecked(asarstr) }; //Turn the bytes into an ASCII string
+ 
+    //If the injection string is already in the asar archive then don't replace anything but the user CSS
+    match asarstr.find("CSS_INJECTION_USER_CSS") {
+        Some(mut idx) => {
+            println!("CSS injection string already present, replacing contents with new CSS theme..."); //Print that we already did this once
+
+            //Get to the index of the first string quote
+            let begin = loop {
+                //If we reached the ES6 raw string literal return the idx
+                if asarstr.get(idx..idx+1).unwrap() == "`" {
+                    idx += 1;
+                    break idx;
+                }
+                idx += 1;
+            };
+
+            let end = loop {
+                //If we reached the ES6 raw string literal return the idx
+                if asarstr.get(idx..idx+1).unwrap() == "`" {
+                    idx+=1;
+                    break idx;
+                }
+                idx += 1;
+            };
+
+            asarstr.replace_range((begin  + 1)..end, &theme); //Replace the user CSS with the new user CSS
+        },
+        //If there is no injection string then replace the strings with an injection string
+        None => {
+            //Replace the string with the CSS injection string inserted
+            asarstr = asarstr.replacen("mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options);", &css, 1);
+            println!("{}", style("Added user CSS theme to Discord!").green()); //Print the success message
+        }
+    }
+
+    let mut asar = BufWriter::new( fs::File::create(path)? ); //Open a new buffer writer to write the contents of the file again
+    asar.write_all(asarstr.as_bytes())?; //Write all bytes to the file
+    println!("{}", style("Successfully inserted user CSS into Discord!").green());
+    prompt_quit(0);
+}
+
+fn main() {
+    run().unwrap()
 }
