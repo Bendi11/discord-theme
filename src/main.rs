@@ -141,7 +141,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 idx += 1;
             };
 
-            jsstr.replace_range((begin)..end, &theme); //Replace the user CSS with the new user CSS
+            jsstr.replace_range((begin)..(end-2), &theme); //Replace the user CSS with the new user CSS
         },
         //If there is no injection string then replace the strings with an injection string
         None => {
