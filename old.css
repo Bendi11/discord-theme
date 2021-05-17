@@ -1,0 +1,90 @@
+.interactive:hover {
+    color: #cfd4e9; /*This is the text color that appears when hovering over @mentions*/
+    background-color: #6f87df95; /*This sets the hover color for @mentions*/
+}
+
+/*For the server selector and find more servers buttons*/
+.circleIconButton-1QV--U {
+    color: #44b581; /*This is the color of the circle icon like the compass and + button*/
+}
+
+[data-popout-root].newBrand, html.newBrand {
+    --brand-experiment: #6f88df; /*This is the primary color like the background for the logo*/
+    --brand-experiment-560: #6f87dfb6; /*This is the background color for buttons like server management, it is very common*/
+    --brand-experiment-500: #445389; /*Not exactly sure what this does...*/
+    --brand-experiment-30a: #3b3f4c; /*This is the annoying background color for @mentions*/
+    --brand-experiment-200: #6c81ca; /*This is the text color for @mentions*/
+    --brand-experiment-360: #8188d3; /*This is the text for the Invite People button*/
+    --brand-experiment-15a: #3c4560; /*This is the background color for reactions that you have reacted with*/
+}
+
+/*This defines the ugly border and background colors for the new reactions that the user has used*/
+.reaction-1hd86g.reactionMe-wv5HKu {
+    border-color: rgba(0, 0, 0, 0); /*Make the border around reactions transparent / invisible*/
+}
+
+/*This is general attributes for a reaction*/
+.reaction-1hd86g {
+    border-radius: .3rem; /*Change the reaction squares to be more non circular*/
+}
+
+/*This is reaction colors when hovering*/
+.reaction-1hd86g:hover {
+    border-color: rgba(0,0,0,0); /*Make the border invisible*/
+}
+
+/*
+These are all defaults left unchanged from the great corporate color fuckup. but I included them just in case Discord 
+decides to change the colors in the future
+*/
+.theme-dark {
+    --header-primary: #fff;
+    --header-secondary: #b9bbbe;
+    --text-normal: #dcddde;
+    --text-muted: #72767d;
+    --text-link: #00b0f4;
+    --text-positive: #4fdc7b;
+    --interactive-normal: #b9bbbe;
+    --interactive-hover: #dcddde;
+    --interactive-active: #fff;
+    --interactive-muted: #4f545c;
+    --background-primary: #36393f;
+    --background-secondary: #2f3136;
+    --background-secondary-alt: #292b2f;
+    --background-tertiary: #202225;
+    --background-accent: #4f545c;
+    --background-floating: #18191c;
+    --background-mobile-primary: #36393f;
+    --background-mobile-secondary: #2f3136;
+    --background-modifier-hover: rgba(79,84,92,0.16);
+    --background-modifier-active: rgba(79,84,92,0.24);
+    --background-modifier-selected: rgba(79,84,92,0.32);
+    --background-modifier-accent: hsla(0,0%,100%,0.06);
+    --info-positive-text: #fff;
+    --info-warning-text: #fff;
+    --info-danger-text: #fff;
+    --info-help-background: rgba(0,176,244,0.1);
+    --info-help-foreground: #00b0f4;
+    --info-help-text: #fff;
+    --status-warning-text: #000;
+    --scrollbar-thin-thumb: #202225;
+    --scrollbar-thin-track: transparent;
+    --scrollbar-auto-thumb: #202225;
+    --scrollbar-auto-track: #2e3338;
+    --scrollbar-auto-scrollbar-color-thumb: #202225;
+    --scrollbar-auto-scrollbar-color-track: #2f3136;
+    --elevation-stroke: 0 0 0 1px rgba(4,4,5,0.15);
+    --elevation-low: 0 1px 0 rgba(4,4,5,0.2),0 1.5px 0 rgba(6,6,7,0.05),0 2px 0 rgba(4,4,5,0.05);
+    --elevation-medium: 0 4px 4px rgba(0,0,0,0.16);
+    --elevation-high: 0 8px 16px rgba(0,0,0,0.24);
+    --logo-primary: #fff;
+    --control-brand-foreground: #a5b3e7;
+    --background-mentioned: rgba(250,166,26,0.1);
+    --background-mentioned-hover: rgba(250,166,26,0.08);
+    --background-message-hover: rgba(4,4,5,0.07);
+    --channels-default: #8e9297;
+    --guild-header-text-shadow: 0 1px 1px rgba(0,0,0,0.4);
+    --channeltextarea-background: #40444b;
+    --activity-card-background: #202225;
+    --textbox-markdown-syntax: #8e9297;
+}
