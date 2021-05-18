@@ -8,6 +8,17 @@
     color: #44b581; /*This is the color of the circle icon like the compass and + button*/
 }
 
+/*The Video and Screen buttons in the bottom left*/
+.button-1YfofB.buttonColor-7qQbGO.buttonActive-3FrkXp, .button-1YfofB .buttonColor-7qQbGO.buttonActive-3FrkXp {
+    background-color: #43b582; /*The green color that is now more muted*/
+}
+
+/*The Video and Screen buttons in the bottom left, brightened when hovered over*/
+.button-1YfofB.buttonColor-7qQbGO.buttonActive-3FrkXp:hover, .button-1YfofB .buttonColor-7qQbGO.buttonActive-3FrkXp:hover {
+    background-color: #4dd196; /*The green color that is now more muted*/
+}
+
+
 [data-popout-root].newBrand, html.newBrand {
     --brand-experiment: #6f88df; /*This is the primary color like the background for the logo*/
     --brand-experiment-560: #6f87dfb6; /*This is the background color for buttons like server management, it is very common*/
@@ -55,7 +66,7 @@ decides to change the colors in the future
     --text-normal: #dcddde;
     --text-muted: #72767d;
     --text-link: #00b0f4;
-    --text-positive: #44b581; /*I did change this to be more muted than the terrible bright green it was before*/
+    --text-positive: #43b582; /*I did change this to be more muted than the terrible bright green it was before*/
     --interactive-normal: #b9bbbe;
     --interactive-hover: #dcddde;
     --interactive-active: #fff;
