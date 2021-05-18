@@ -1,11 +1,14 @@
 pub mod config;
 use config::Config;
 
-use std::{env, path::Path};
+use std::{env};
 use console::{style};
 use std::io::{Read, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::fs;
+
+/// The old CSS theme to insert if no input is given to the exe
+const OLD_THEME: &'static str = include_str!("../old.css");
 
 /// Get the location that Discord was installed to based on the current compilation target and navigate to the highest discord version folder's
 /// core module folder
@@ -69,18 +72,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }));
 
     //Get the input file path from the arguments
-    let css_path = match env::args().nth(1) {
-        Some(p) => p,
+    let theme = match env::args().nth(1) {
+        Some(p) => std::fs::read_to_string(&p).expect(format!("Failed to read custom theme CSS file: {:?}", p).as_str()), //Read the user CSS theme to a string,
         //No input path given, print an error and exit
         None    => {
             //Print the error message in red
             eprintln!("{}", style("No input given! Drag and drop a .css theme file onto the executable or pass a path as an argument on the command line.").yellow());
-            println!("No input was given to the program, would you like to reset Discord's theme to default? (y/n)"); //Prompt the user to reset Discord if no input was given
+            println!("No input was given to the program, would you like to\n1.) Patch Discord to have the old theme\n2.) Reset Discord's theme to factory default from a backup\n3.) Quit the program"); //Prompt the user to reset Discord if no input was given
 
             let mut input = String::new(); //Make a string to hold the user input
             std::io::stdin().read_line(&mut input).unwrap(); //Read one line from stdin
             match input.trim() {
-                "y" | "Y" => {
+                "2" => {
                     let dir = get_discord_dir(); //Get the path to Discord
                     //Get the path to both the backup and archive files
                     let (backup, real) = (dir.join("core.asar.backup"), dir.join("core.asar"));
@@ -101,14 +104,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", style("Restored backup file successfully").green());
                     prompt_quit(0);
                 },
-                _ => std::process::exit(0), //Exit the program if the user doesn't want to roll back changes
-            };
+                "1" => OLD_THEME.to_owned(), //Return the default old theme CSS string
+                _ => std::process::exit(0), //Exit the program if the user doesn't want to roll back changes or set the old theme
+            }
             
         }
     };
+
     let cfg = Config::load(); //Load the configuration toml file or create a default one
     
-    let theme = std::fs::read_to_string(&css_path).expect(format!("Failed to read custom theme CSS file: {:?}", css_path).as_str()); //Read the user CSS theme to a string
     //Make a css injection javascript
     let css = format!(
     "
@@ -118,7 +122,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             const style = document.createElement('style');
             style.innerHTML = CSS_INJECTION_USER_CSS;
             document.head.appendChild(style);
+            
+            //JS_SCRIPT_BEGIN
             {js}
+            //JS_SCRIPT_END
         `);
     }});mainWindow.webContents.
     ", 
@@ -182,7 +189,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 idx += 1;
             };
-
             let end = loop {
                 //If we reached the ES6 raw string literal return the idx
                 if jsstr.get(idx..idx+1).unwrap() == "`" {
@@ -193,6 +199,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             jsstr.replace_range((begin)..(end-2), &theme); //Replace the user CSS with the new user CSS
+
+            let mut idx = jsstr.find("//JS_SCRIPT_BEGIN").expect("Failed to get JS injection string, please reset Discord and re-apply theme");
+            idx += "//JS_SCRIPT_BEGIN\n".len(); //Increment the index to go past the end of the JS_SCRIPT_BEGIN string
+            //Get to the index of the first string quote
+            let begin = idx;
+            let end = jsstr.find("//JS_SCRIPT_END").expect("Failed to find JS injection terminator, please reset and re-apply theme");
+
+            jsstr.replace_range((begin)..(end), &cfg.customjs); //Replace the JS script path with the new custom JS
         },
         //If there is no injection string then replace the strings with an injection string
         None => {
@@ -202,6 +216,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    
     let mut asar = BufWriter::new( fs::File::create(main_file)? ); //Open a new buffer writer to write the contents of the file again
     asar.write_all(jsstr.as_bytes())?; //Write all bytes to the file
     drop(asar);

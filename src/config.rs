@@ -1,5 +1,7 @@
 use std::fs;
 
+use console::style;
+
 /// The path to the configuration file that we will load options from
 const CONFIG_PATH: &'static str = "config.toml";
 
@@ -33,7 +35,10 @@ impl Config {
             Ok(buf) => {
                 let config = match buf.parse::<toml::Value>() { //Make a toml from the file's contents
                     Ok(toml) => toml, //Return the TOML value
-                    Err(_)   => return Self::default_file() //Return a default file if there was an error
+                    Err(e)   => {
+                        eprintln!("{} {}", style("Failed to parse config.toml, switching to default file...").red(), e);
+                        return Self::default_file()
+                     } //Return a default file if there was an error
                 };
                 
 

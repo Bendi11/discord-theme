@@ -28,3 +28,19 @@ mainWindow.webContents.on('dom-ready', () => {
 - Save the core.asar file again
 - Reload Discord
 
+- For inserting custom JS: 
+```js
+mainWindow.webContents.on('dom-ready', () => {
+    mainWindow.webContents.executeJavaScript(`
+        let userCss = \`**USER CSS**\`;
+        const style = document.createElement('style');
+        style.innerHTML = userCss;
+        document.head.appendChild(style);
+        
+        let CUSTOM_USER_JAVASCRIPT = \`**USER JS PATH**\`;
+        var script = document.createElement('script');
+        script.src = CUSTOM_USER_JAVASCRIPT;
+    `);
+});mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options);
+
+```
