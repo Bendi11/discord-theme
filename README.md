@@ -19,11 +19,13 @@ If you find anything that this misses, please open an issue describing what need
 Patched: 
 ---
 ![Clyde](https://github.com/Bendi11/discord-theme/blob/76ca10101860f87aa2d85f59c924d17f034059ff/assets/Clyde-new.png)
+![Voice](assets/voice-new.png)
 
 ![Mentions and Reactions](assets/mention-new.png)
 ---
 New Discord Theme:
 ---
 ![Clyde](assets/Clyde-old.png)
+![Voice](assets/voice-old.png)
 
 ![Mentions and Reactions](assets/mention-old.png)
