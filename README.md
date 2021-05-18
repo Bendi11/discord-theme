@@ -14,3 +14,16 @@ It currently changes
 - Reds have also been muted more
 
 If you find anything that this misses, please open an issue describing what needs to be changed
+
+### Comparisons Between Patched and New Discord
+Patched: 
+---
+![Clyde](https://github.com/Bendi11/discord-theme/blob/76ca10101860f87aa2d85f59c924d17f034059ff/assets/Clyde-new.png)
+
+![Mentions and Reactions](assets/mention-new.png)
+---
+New Discord Theme:
+---
+![Clyde](assets/Clyde-old.png)
+
+![Mentions and Reactions](assets/mention-old.png)
