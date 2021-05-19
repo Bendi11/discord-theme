@@ -41,3 +41,8 @@ This feature is largely expirimental but if you want to, edit a config.toml file
 custom-js paramter to be whatever you want 
 
 Note that the \` character should be escaped with a \\ in the javascript due to how insertion works
+
+## Note on automatically downloading the latest theme from Github
+If you decide that you don't want / trust the program downloading CSS from github and inserting it into your Discord whenever there is an update, compile using the command: 
+> cargo build --release --no-default-features
+This will disable network connectivity, removing around 2MB from the finished binary size. It will also include the latest version of the theme availible when compiling and use this as the default theme
