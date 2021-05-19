@@ -2,7 +2,7 @@
 Discord themer that will patch custom css and insert javascript into Discord. 
 
 ## Replacing Discord's New Theme With the Old One
-The themer contains a copy of the old.css file and can patch Discord's theme back to the old color palette by default
+Just run the executable with no arguments or drag and dropped files; a menu should appear asking if you want to patch Discord's theme back to the older version
 
 It currently changes
 - Clyde svg is back to the normal clyde
@@ -19,11 +19,25 @@ If you find anything that this misses, please open an issue describing what need
 Patched: 
 ---
 ![Clyde](https://github.com/Bendi11/discord-theme/blob/76ca10101860f87aa2d85f59c924d17f034059ff/assets/Clyde-new.png)
+![Voice](assets/Voice-new.png)
 
 ![Mentions and Reactions](assets/mention-new.png)
 ---
 New Discord Theme:
 ---
 ![Clyde](assets/Clyde-old.png)
+![Voice](assets/Voice-old.png)
 
 ![Mentions and Reactions](assets/mention-old.png)
+
+# Using a custom CSS stylesheet
+There are two methods to use a custom style sheet for Discord's theme: 
+- Drag and drop the .css file onto the executable, it will automatically apply the stylesheet to Discord
+- Pass a path to the .css file as an argument for the executable on the command line
+#### BetterDiscord `.theme.css` files are not compatible with this program and may break your Discord (backups can still be restored if this happens)
+
+# Using custom Javascript
+This feature is largely expirimental but if you want to, edit a config.toml file that should be automatically created when running the executable and change the 
+custom-js paramter to be whatever you want 
+
+Note that the \` character should be escaped with a \\ in the javascript due to how insertion works
