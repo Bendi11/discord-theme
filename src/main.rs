@@ -8,7 +8,12 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 
 /// The old CSS theme to insert if no input is given to the exe
+#[cfg(not(feature = "autoupdate"))]
 const OLD_THEME: &str = include_str!("../old.css");
+
+/// The old URL to download the most recent old.css file from
+#[cfg(feature = "autoupdate")]
+const OLD_URL: &str = "https://raw.githubusercontent.com/Bendi11/discord-theme/master/old.css";
 
 /// Get the location that Discord was installed to based on the current compilation target and navigate to the highest discord version folder's
 /// core module folder
@@ -122,6 +127,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let mut input = String::new(); //Make a string to hold the user input
             std::io::stdin().read_line(&mut input).unwrap(); //Read one line from stdin
             match input.trim() {
+                //Restore a backup of Discord's asar
                 "2" => {
                     let dir = get_discord_dir(); //Get the path to Discord
                                                  //Get the path to both the backup and archive files
@@ -143,7 +149,33 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", style("Restored backup file successfully").green());
                     prompt_quit(0);
                 }
-                "1" => OLD_THEME.to_owned(), //Return the default old theme CSS string
+                "1" => {
+                    //Download the most recent old.css file from github if the feature is enabled
+                    #[cfg(feature = "autoupdate")]
+                    println!(
+                        "{}",
+                        style(format!("Downloading latest old theme from {}", OLD_URL)).blue()
+                    );
+
+                    //Download the newest version of the theme
+                    #[cfg(feature = "autoupdate")]
+                    let text = ureq::get(OLD_URL)
+                        .call()
+                        .unwrap_or_else(|e| panic!("Failed to download newest old theme from {} with error: {}", OLD_URL, e))
+                        .into_string()
+                        .unwrap_or_else(|e| panic!("Failed to get text response from {} when downloading newest theme: {}", OLD_URL, e));
+                    #[cfg(feature = "autoupdate")]
+                    println!(
+                        "{}",
+                        style("Downloaded newest version of theme successfully").green()
+                    );
+
+                    //Otherwise just return the old.css that this was compiled with
+                    #[cfg(not(feature = "autoupdate"))]
+                    let text = OLD_THEME.to_owned();
+                    //Return the text that was returned based on conditional compilation
+                    text
+                } //Return the default old theme CSS string
                 _ => std::process::exit(0), //Exit the program if the user doesn't want to roll back changes or set the old theme
             }
         }
@@ -269,19 +301,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut asar = BufWriter::new(fs::File::create(main_file)?); //Open a new buffer writer to write the contents of the file again
     asar.write_all(jsstr.as_bytes())?; //Write all bytes to the file
+
     drop(asar);
+    drop(js);
     println!(
         "{}",
         style("Successfully inserted user CSS into Discord!").green()
     );
     rasar::pack("./temp_coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
-                                                             //Delete the temporary coreasar directory
-    fs::remove_dir_all("./temp_coreasar").unwrap_or_else(|e| {
-        panic!(
-            "Failed to delete unpacked Discord archive directory: {:?}",
-            e
-        )
-    });
     prompt_quit(0);
 }
 
