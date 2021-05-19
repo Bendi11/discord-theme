@@ -10,15 +10,15 @@ It currently changes
 - Reactions have been squarified after being more circularized 
 - Mentions have been reverted from the white background to the normal blue
 - Button colors have been reverted
-- Greens are more muted again after being brightened in the update
-- Reds have also been muted more
+- Greens in the voice connection panel have been muted again
+- Input Sensitivity Slider is back to normal muted green
 
 If you find anything that this misses, please open an issue describing what needs to be changed
 
 ### Comparisons Between Patched and New Discord
 Patched: 
 ---
-![Clyde](https://github.com/Bendi11/discord-theme/blob/76ca10101860f87aa2d85f59c924d17f034059ff/assets/Clyde-new.png)
+![Clyde](assets/Clyde-new.png)
 ![Voice](assets/Voice-new.png)
 
 ![Mentions and Reactions](assets/mention-new.png)
