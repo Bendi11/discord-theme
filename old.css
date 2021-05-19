@@ -1,6 +1,12 @@
+/*When hovering over interactive things, determines text color*/
 .interactive:hover {
     color: #cfd4e9; /*This is the text color that appears when hovering over @mentions*/
     background-color: #6f87df95; /*This sets the hover color for @mentions*/
+}
+
+/*This is the green portion of the 'Automatically Determine Input Sensitivity' slider*/
+.bar-2Qqk5Z[style] {
+    background: #69c49a !important; /*Mute the green again*/
 }
 
 /*For the server selector and find more servers buttons*/
