@@ -6,12 +6,22 @@
 
 /*This is the green portion of the 'Automatically Determine Input Sensitivity' slider*/
 .bar-2Qqk5Z[style] {
-    background: #69c49a !important; /*Mute the green again*/
+    background: #69c49a !important; /*Mute the green again, override the inline HTML style attribute*/
+}
+
+/*This is the Add Friend button color*/
+.item-3HknzM[style] {
+    background-color: #41b681 !important; /*Mute the green color of the add friend button*/ 
 }
 
 /*For the server selector and find more servers buttons*/
 .circleIconButton-1QV--U {
     color: #44b581; /*This is the color of the circle icon like the compass and + button*/
+}
+
+/*The color that circular buttons like add server and find server buttons are when they are selected (hovered)*/
+.circleIconButton-1QV--U.selected-1JjBPm {
+    background-color: #43b57f; /*Make the color more muted as always*/
 }
 
 /*The Video and Screen buttons in the bottom left*/
