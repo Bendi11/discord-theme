@@ -230,7 +230,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     path.push("core.asar"); //Push the core file name to the path
 
     //Unpack the asar archive
-    rasar::extract(path.to_str().unwrap(), "./temp_coreasar")?;
+    rasar::extract(path.to_str().unwrap(), "./coreasar")?;
 
     //Make a path to the unpacked js file
     let main_file = PathBuf::from("./coreasar/app/mainScreen.js");
@@ -308,7 +308,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "{}",
         style("Successfully inserted user CSS into Discord!").green()
     );
-    rasar::pack("./temp_coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
+    rasar::pack("./coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
     prompt_quit(0);
 }
 
