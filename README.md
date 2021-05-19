@@ -12,6 +12,7 @@ It currently changes
 - Button colors have been reverted
 - Greens in the voice connection panel have been muted again
 - Input Sensitivity Slider is back to normal muted green
+- Add friend, add server, and find servers buttons are muted green
 
 If you find anything that this misses, please open an issue describing what needs to be changed
 
