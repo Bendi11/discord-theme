@@ -116,7 +116,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let theme = match env::args().nth(1) {
         //Read the user CSS theme to a string and escape any '`' characters to not mess up CSS insertion
         Some(p) => std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("Failed to read custom theme CSS file: {:?}", e)),
-            
         //No input path given, print an error and exit
         None => {
             //Print the error message in red
@@ -179,7 +178,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    .replace("\"", "\\\"")
+    .replace("\\", "\\\\")
     .replace("`", "\\`");
 
     let cfg = Config::load(); //Load the configuration toml file or create a default one
@@ -189,14 +188,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "
     mainWindow.webContents.on('dom-ready', () => {{
         mainWindow.webContents.executeJavaScript(`
-            let CSS_INJECTION_USER_CSS =  \"{css}\";
-            const style = document.createElement('style');
-            style.innerHTML = CSS_INJECTION_USER_CSS;
-            document.head.appendChild(style);
-            
-            //JS_SCRIPT_BEGIN
-            {js}
-            //JS_SCRIPT_END
+            let CSS_INJECTION_USER_CSS = String.raw \\`{css}\\`;  
+            const style = document.createElement('style');  
+            style.innerHTML = CSS_INJECTION_USER_CSS;  
+            document.head.appendChild(style);  
+              
+            //JS_SCRIPT_BEGIN 
+            {js} 
+            //JS_SCRIPT_END 
         `);
     }});mainWindow.webContents.
     ",
@@ -264,7 +263,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             //Get to the index of the first string quote
             let begin = loop {
                 //If we reached the ES6 raw string literal return the idx
-                if jsstr.get(idx..idx + 1).unwrap() == "\"" {
+                if jsstr
+                    .get(idx..idx + 1)
+                    .ok_or_else(|| panic!("Failed to get the first opening backtick"))
+                    .unwrap()
+                    == "`"
+                {
                     idx += 1;
                     break idx;
                 }
@@ -272,7 +276,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             };
             let end = loop {
                 //If we reached the ES6 raw string literal return the idx
-                if jsstr.get(idx..idx + 1).unwrap() == "\"" {
+                if jsstr
+                    .get(idx..idx + 1)
+                    .ok_or_else(|| panic!("Failed to get the closing backtick"))
+                    .unwrap()
+                    == "`"
+                {
                     idx += 1;
                     break idx;
                 }

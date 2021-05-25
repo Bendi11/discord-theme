@@ -2,3 +2,4 @@
 config.toml
 *.exe
 coreasar
+pre-update.css
