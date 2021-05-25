@@ -38,7 +38,7 @@ There are two methods to use a custom style sheet for Discord's theme:
 #### BetterDiscord `.theme.css` files are not compatible with this program and may break your Discord (backups can still be restored if this happens)
 
 # Using custom Javascript
-This feature is largely expirimental but if you want to, edit a config.toml file that should be automatically created when running the executable and change the 
+This feature is largely expirimental but if you want to, edit the config.toml file that should be automatically created when running the executable and change the 
 custom-js paramter to be whatever you want 
 
 Note that the \` character should be escaped with a \\ in the javascript due to how insertion works
