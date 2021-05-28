@@ -295,8 +295,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     let (backup, real) = (dir.join("core.asar.backup"), dir.join("core.asar"));
                     //If the file doesn't exist then print an error and prompt the user to quit
                     if !backup.exists() {
-                        eprintln!("Discord backup file {} doesn't exist, if you want to revert Discord to factory defaults uninstall and then reinstall it", backup.display());
-                        prompt_quit(-1);
+                        panic!("Discord backup file {} doesn't exist, if you want to revert Discord to factory defaults uninstall and then reinstall it", backup.display());
                     }
 
                     //Get a progress bar showing how far we are in copying the backup over
@@ -314,8 +313,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
                     //Copy the backup file to the real file, we copy here instead of moving the file to keep a backup just in case the copy operation fails somehow
                     if let Err(e) = std::io::copy(&mut backup_file, &mut rest_prog.wrap_write(real_file)) {
-                        eprintln!("{}", style(format!("Failed to restore backup file {} with error {}, reinstall Discord to restore factory default settings", backup.display(), e)).fg(Color::Red));
-                        prompt_quit(-1);
+                        panic!("Failed to restore backup file {} with error {}, reinstall Discord to restore factory default settings", backup.display(), e);
                     }
 
                     rest_prog.finish_with_message(style("Restored backup file!").green().to_string()); //Finish the progress bar
