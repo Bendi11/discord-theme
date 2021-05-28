@@ -1,40 +1,27 @@
 ## Procedure: 
-- For injecting CSS: See [this](https://gist.github.com/ebith/fa0381b8b386c349da4dd474957791f9)
+- For injecting CSS with Javascript: See [this](https://gist.github.com/ebith/fa0381b8b386c349da4dd474957791f9)
 - Find file core.asar in directory %LOCALAPPDATA%\Discord\app-1.0.9001\modules\discord_desktop_core-1\discord_desktop_core
 - - Make a backup of the file if requested
 - Find the string 
 ```js 
-mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options); 
+mainWindow.webContents.
 ``` 
 in the file and replace it with:
 ```js
-mainWindow.webContents.on('dom-ready', () => {
-      mainWindow.webContents.executeJavaScript(`
-          let USER_CSS = \`**USER CSS**\`;
-          const style = document.createElement('style');
-          style.innerHTML = USER_CSS;
-          document.head.appendChild(style);
-          `);
-    });mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options);
+mainWindow.webContents.on('dom-ready', () => {{
+        mainWindow.webContents.executeJavaScript(`
+            let CSS_INJECTION_USER_CSS = String.raw \\`{css}\\`;  
+            const style = document.createElement('style');  
+            style.innerHTML = CSS_INJECTION_USER_CSS;  
+            document.head.appendChild(style);  
+              
+            //JS_SCRIPT_BEGIN 
+            **{js}** 
+            //JS_SCRIPT_END 
+        `);
+    }});mainWindow.webContents.
 ```
   - Ensure that the replacement has not already happened
-  - Allow the user to add additional javascript to the file?
 - Save the core.asar file again
 - Reload Discord
 
-- For inserting custom JS: 
-```js
-mainWindow.webContents.on('dom-ready', () => {
-    mainWindow.webContents.executeJavaScript(`
-        let userCss = \`**USER CSS**\`;
-        const style = document.createElement('style');
-        style.innerHTML = userCss;
-        document.head.appendChild(style);
-        
-        //JS_BEGIN_MARKER
-        **USER JS**
-        //JS_END_MARKER
-    `);
-});mainWindow.webContents.send(`${DISCORD_NAMESPACE}${event}`, ...options);
-
-```
