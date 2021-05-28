@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 /// The old CSS theme to insert if no input is given to the exe
 #[cfg(not(feature = "autoupdate"))]
-const OLD_THEME: &str = include_str!("../old.css");
+const OLD_THEME: &str = include_str!("../assets/old-compressed.css");
 
 /// The icon file that we will swap with Discord's new one, this is Windows-specific
 #[cfg(target_os = "windows")]
