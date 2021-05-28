@@ -40,6 +40,14 @@ const ICON_NAME: &str = "discord.png";
 const OLD_URL: &str =
     "https://raw.githubusercontent.com/Bendi11/discord-theme/master/assets/old-compressed.css";
 
+
+/// I use so many progress bars here that I need a function dedicated to making them with a consistent style
+fn spinner() -> ProgressBar {
+    let spin = ProgressBar::new_spinner().with_style(ProgressStyle::default_spinner().tick_strings(&["[>---]", "[=>--]", "[==>-]", "[===>]", "[-===]", "[--==]", "[---=]", "[----]"]).template("{spinner} - {msg}")); 
+    spin.enable_steady_tick(100); //Tick the progress bar every 10th of a second
+    spin
+}
+
 /// Get the highest-level discord installation directory, not into a specific version folder, but to the root folder containing all of the
 /// versioned folders. This is kept separate from the [get_discord_dir] function because we need the root folder when replacing the Discord icon
 fn get_discord_root() -> PathBuf {
@@ -324,8 +332,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 #[cfg(feature = "autoupdate")]
                 //Download the most recent version of the theme from github
                 0 => {
-                    let dlprog = ProgressBar::new_spinner(); //Create a spinner to show download progress
-                    dlprog.enable_steady_tick(10);
+                    let dlprog = spinner(); //Create a spinner to show download progress
                     dlprog.set_message(format!("Downloading most recent theme file from {}...", OLD_URL));
 
                     //Download the newest version of the theme from github
@@ -395,9 +402,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     path.push("core.asar"); //Push the core archive file name to the path
 
     //Create a spinner to show that we are reading Discord's files
-    let js_prog = ProgressBar::new_spinner();
+    let js_prog = spinner();
     js_prog.set_message("Unpacking Discord's archive files...");
-    js_prog.enable_steady_tick(10);
 
     //Unpack the asar archive
     rasar::extract(path.to_str().unwrap(), "./coreasar")?;
@@ -419,9 +425,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }),
     );
 
-    let mut jsstr = Vec::new();
-    js.read_to_end(&mut jsstr)?; //Read the file into a string for string replacement
-    let mut jsstr = unsafe { String::from_utf8_unchecked(jsstr) }; //Turn the bytes into an ASCII string
+    let mut jsstr = String::new();
+    js.read_to_string(&mut jsstr).unwrap_or_else(|e| panic!("Failed to read mainScreen.js file to a string. Error: {}", e)); //Read the file into a string so that we can put CSS in
 
     //Finish the first progress bar
     js_prog.finish_with_message(
@@ -431,15 +436,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     //Create a spinner to show that we are doing the search and replace for the custom CSS theme
-    let ins_prog = ProgressBar::new_spinner();
+    let ins_prog = spinner();
     ins_prog.set_message("Inserting CSS theme into Discord's archive...");
-    ins_prog.enable_steady_tick(10);
 
     //If the injection string is already in the asar archive then don't replace anything but the user CSS
     match jsstr.find("CSS_INJECTION_USER_CSS") {
         //The CSS string is already present, replace the CSS
         Some(mut idx) => {
-            println!("{}", style("CSS injection string already present, replacing contents with new CSS theme...").yellow()); //Print that we already did this once
+            //println!("{}", style("CSS injection string already present, replacing contents with new CSS theme...").yellow()); //Print that we already did this once
 
             //Get to the index of the first string quote
             let begin = loop {
@@ -487,11 +491,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         None => {
             //Replace the string with the CSS injection string inserted
             jsstr = jsstr.replacen("mainWindow.webContents.", &css, 1);
-            println!("{}", style("Added user CSS theme to Discord!").green()); //Print the success message
         }
     }
 
-    ins_prog.finish_with_message("Inserted user CSS into discord's archive");
+    ins_prog.finish_with_message(style("Inserted user CSS into discord's archive").green().to_string());
 
     //Create a spinner to show that we are re-packing discord's asar file
     let pack_prog = ProgressBar::new(jsstr.len() as u64).with_style(
