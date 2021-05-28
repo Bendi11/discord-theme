@@ -5,9 +5,9 @@ use console::style;
 use console::Color;
 use console::Style;
 use dialoguer::theme::ColorfulTheme;
-#[cfg(target_os = "linux")]
-use dialoguer::{Input, Attribute};
 use dialoguer::Select;
+#[cfg(target_os = "linux")]
+use dialoguer::{Attribute, Input};
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use std::env;
@@ -133,18 +133,25 @@ fn get_discord_dir(mut root: PathBuf) -> PathBuf {
 
 /// Replace the `app.ico` on windows or `app.png` on linux / mac with the old blurple clyde icon that is embedded in this executable
 #[inline]
-fn replace_icon(root: &PathBuf) -> Result<(), std::io::Error> {
+fn replace_icon(root: &std::path::Path) -> Result<(), std::io::Error> {
     //Overwrite the icon file
-    std::fs::write(root.join(ICON_NAME), OLD_ICON) 
-
+    std::fs::write(root.join(ICON_NAME), OLD_ICON)
 }
 
 /// Prompt the user to quit the application by entering any character, used to make sure that the program doesn't immediately exit
 /// on error
 fn prompt_quit(errcode: i32) -> ! {
-    println!("Enter any character to exit...");
-    let mut buf = [0; 1];
-    std::io::stdin().read_exact(&mut buf).unwrap(); //Read one byte from the input before exiting
+    //Render a dialog based on the error code (non-zero means error)
+    println!(
+        "{}",
+        match errcode != 0 {
+            true => style("Enter any character to exit...").red().bold(),
+            false => style("Enter any character to exit...").bold().bright(),
+        }
+    );
+    if console::user_attended() {
+        let _ = console::Term::stdout().read_key();
+    }
     std::process::exit(errcode);
 }
 
@@ -199,21 +206,23 @@ fn make_backup(root: PathBuf, dir: PathBuf) {
         }
     }
 
-
     //Create a backup icon file now
-    
+
     let icon = root.join(ICON_NAME); //Get the discord icon name
 
     let icon_backup = root.join("icon-backup"); //We store the backup without extension because it doesn't really matter and it allows me to write non platform-specific code
-    //Only create a backup if there is not a backup there already, this is so that we don't overwrite the old icon backup 
+                                                //Only create a backup if there is not a backup there already, this is so that we don't overwrite the old icon backup
     if !icon_backup.exists() {
         //Copy the file to a backup
         match std::fs::copy(icon, icon_backup) {
             Ok(_) => (),
-            Err(e) => println!("{}", style(format!("Failed to make a backup of Discord's icon: {}", e)).fg(Color::Color256(172)) ), //Print a warning but don't panic if we couldn't make an icon backup
+            Err(e) => println!(
+                "{}",
+                style(format!("Failed to make a backup of Discord's icon: {}", e))
+                    .fg(Color::Color256(172))
+            ), //Print a warning but don't panic if we couldn't make an icon backup
         }
     }
-
 }
 
 /// Run the discord theme setter main application
@@ -281,16 +290,30 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         prompt_quit(-1);
                     }
 
+                    //Get a progress bar showing how far we are in copying the backup over
+                    let rest_prog = ProgressBar::new(match real.metadata() {
+                        Ok(m) => m.len(),
+                        Err(_) => 100,
+                    }).with_style(ProgressStyle::default_bar().template("{bar} {bytes}/{total_bytes} - {binary_bytes_per_sec}: {msg}")).with_message("Restoring backup file...");
+
                     let _ = fs::remove_file(&real); //Remove the original asar file if it exists
-                                                    //Copy the backup file to the real file name, don't rename because that would effectively delete the original backup
-                    if let Err(e) = fs::copy(&backup, real) {
+
+                    //Open the backup file so that we can wrap it in a progress bar
+                    let mut backup_file = std::fs::File::open(&backup).unwrap_or_else(|e| panic!("Failed to open Discord backup file at {}: {}", backup.display(), e));
+
+                    let real_file = std::fs::File::create(&real).unwrap_or_else(|e| panic!("Failed to open the file that backup is restoring: {}", e)); //Open the real file that we will be copying the backed-up data to
+
+                    //Copy the backup file to the real file, we copy here instead of moving the file to keep a backup just in case the copy operation fails somehow
+                    if let Err(e) = std::io::copy(&mut backup_file, &mut rest_prog.wrap_write(real_file)) {
                         eprintln!("{}", style(format!("Failed to restore backup file {} with error {}, reinstall Discord to restore factory default settings", backup.display(), e)).fg(Color::Red));
                         prompt_quit(-1);
                     }
 
-                    let (iconb, iconr) = (dir.join("icon-backup"), dir.join(ICON_NAME)); //Get a path to Discord's icon file and backup file
+                    rest_prog.finish_with_message(style("Restored backup file!").green().to_string()); //Finish the progress bar
+
+                    let (iconb, iconr) = (root.join("icon-backup"), root.join(ICON_NAME)); //Get a path to Discord's icon file and backup file
                     if let Err(e) = fs::copy(iconb, iconr) {
-                        eprintln!("{}", style(format!("Failed to restore Discord's icon from a backup file: {}", e)).fg(Color::Color256(172)) ); //Print a warning if the backup was not restored
+                        eprintln!("{}", style(format!("Failed to restore Discord's icon from a backup file at {}: {}", root.join("icon-backup").display(), e)).fg(Color::Color256(172)) ); //Print a warning if the backup was not restored
                     }
 
                     //Print that the operation was good and the backup was restored
@@ -310,12 +333,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         .unwrap_or_else(|e| panic!("Failed to download newest old theme from {} with error: {}", OLD_URL, e))
                         .into_string()
                         .unwrap_or_else(|e| panic!("Failed to get text response from {} when downloading newest theme: {}", OLD_URL, e));
-                    println!(
-                        "{}",
-                        style("Downloaded newest version of theme successfully").green()
-                    );
 
-                    dlprog.finish_with_message("Downloaded most updated theme file!");
+                    dlprog.finish_with_message(style("Downloaded most updated theme file!").green().to_string());
 
                     //Return the text that was returned based on conditional compilation
                     text
@@ -359,14 +378,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     //Replace the icon file if needed
     if cfg.replace_icon {
         if let Err(e) = replace_icon(&root) {
-            eprintln!("{}", style(format!("Failed to replace Discord's icon file: {}", e)).fg(Color::Color256(172))); //Print a warning but don't fail if the icon couldn't be swapped
+            eprintln!(
+                "{}",
+                style(format!("Failed to replace Discord's icon file: {}", e))
+                    .fg(Color::Color256(172))
+            ); //Print a warning but don't fail if the icon couldn't be swapped
         }
     }
     //If make_backup is on then make a backup asar file
     if cfg.make_backup {
         make_backup(root, path.clone());
     }
-    
 
     path.push("core.asar"); //Push the core file name to the path
 
@@ -400,7 +422,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut jsstr = unsafe { String::from_utf8_unchecked(jsstr) }; //Turn the bytes into an ASCII string
 
     //Finish the first progress bar
-    js_prog.finish_with_message("Unpacked Discord's archive");
+    js_prog.finish_with_message(
+        style("Unpacked Discord's archive")
+            .fg(Color::Green)
+            .to_string(),
+    );
 
     //Create a spinner to show that we are doing the search and replace for the custom CSS theme
     let ins_prog = ProgressBar::new_spinner();
@@ -466,20 +492,27 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     ins_prog.finish_with_message("Inserted user CSS into discord's archive");
 
     //Create a spinner to show that we are re-packing discord's asar file
-    let pack_prog = ProgressBar::new_spinner();
+    let pack_prog = ProgressBar::new(jsstr.len() as u64).with_style(
+        ProgressStyle::default_bar()
+            .template("{bar} {bytes}/{total_bytes} - {binary_bytes_per_sec}: {msg}"),
+    );
     pack_prog.set_message("Re-packing modified Discord archive files...");
-    pack_prog.enable_steady_tick(10);
 
-    let mut asar = BufWriter::new(fs::File::create(main_file)?); //Open a new buffer writer to write the contents of the file again
-    asar.write_all(jsstr.as_bytes())?; //Write all bytes to the file
+    let mainscreenjs = BufWriter::new(fs::File::create(main_file)?); //Open a new buffer writer to write the contents of the file again
+    pack_prog
+        .wrap_write(mainscreenjs)
+        .write_all(jsstr.as_bytes())?; //Write all bytes to the file and track the progress using a progress bar
 
-    drop(asar);
+    pack_prog.finish_with_message(
+        style("Re-packed modified Discord archive, restart Discord for the changes to take effect")
+            .fg(Color::Green)
+            .to_string(),
+    );
+
+    drop(pack_prog);
     drop(js);
     rasar::pack("./coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
 
-    pack_prog.finish_with_message(
-        "Re-packed modified Discord archive, restart Discord for the changes to take effect",
-    );
     prompt_quit(0);
 }
 
