@@ -7,8 +7,13 @@ on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
     branches: [ master ]
+    paths: 
+      - 'assets/old.css'
+      
   pull_request:
     branches: [ master ]
+    paths: 
+      - 'assets/old.css'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -23,10 +28,23 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
+        with: |
+          persist-credentials: false
+          fetch-depth: 0
 
-      - name: Copy the old theme file to old-compressed.css
-        run: cp assets/old.css assets/old-compressed.css
-
-      # Runs a set of commands using the runners shell
+      # Compress the file by removing comments and whitespace 
       - name: Compress the copied theme file
-        run: sed "/\/\*.*\*\//d;/\/\*/,/\*\// d" assets/old-compressed.css
+        run: cat assets/old.css | sed -e 's/^[ \t]*//g; s/[ \t]*$//g; s/\([:{;,]\) /\1/g; s/ {/{/g; s/\/\*.*\*\///g; /^$/d' | sed -e :a -e '$!N; s/\n\(.\)/\1/; ta' > assets/old-compressed.css
+        
+      - name: Commit changes 
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -m "Compress changes to old.css" -a
+        
+      
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with: 
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
