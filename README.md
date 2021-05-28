@@ -1,5 +1,5 @@
 # discord-theme
-Patch Discord's eye-straining theme back to the nice blurple and grey.
+Patch Discord's eye-straining theme back to the nice blurple and grey. 
 
 It currently changes
 - Clyde svg is back to the normal clyde
@@ -11,7 +11,7 @@ It currently changes
 - Input Sensitivity Slider is back to normal muted green
 - Add friend, add server, and find servers buttons are muted green
 
-If you find anything that this misses, please open an issue describing what needs to be changed
+If you find anything that this misses, please [open an issue](https://github.com/Bendi11/discord-theme/issues/new?assignees=Bendi11&labels=bug&template=missing-theme-item.md&title=%5BITEM+MISSING%5D) describing what needs to be changed
 
 ### Comparisons Between Patched and New Discord
 Patched: 
@@ -35,13 +35,16 @@ There are two methods to use a custom style sheet for Discord's theme:
 #### BetterDiscord `.theme.css` files are not compatible with this program and may break your Discord (backups can still be restored if this happens)
 
 # Using custom Javascript
-This feature is largely expirimental but if you want to, edit the config.toml file that should be automatically created when running the executable and change the 
-custom-js paramter to be whatever you want 
-
-Note that the \` character should be escaped with a \\ in the javascript due to how insertion works
+If you know what you're doing, the config file will allow you to insert custom javascript along with the CSS theme. To start, run the application once without arguments and quit it. A `config.toml` file should've been created in the same directory as the program. 
+Just edit the `custom-js` parameter and your new javascript will be inserted. If you aren't familiar with TOML, multiline strings be done with three sequential double quotes:
+```toml
+custom-js = """
+**Your javascript here**
+"""
+```
 
 ## Note on automatically downloading the latest theme from Github
 If you decide that you don't want / trust the program downloading CSS from github and inserting it into your Discord whenever there is an update, compile using the command: 
 > cargo build --release --no-default-features
 > 
-This will disable network connectivity, removing around 2MB from the finished binary size. It will also include the latest version of the theme availible when compiling and use this as the default theme
+This will disable network connectivity, removing around 1.5MB from the finished binary size. It will also include the latest version of the theme availible when compiling and use this as the default theme
