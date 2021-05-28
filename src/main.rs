@@ -35,9 +35,9 @@ const ICON_NAME: &str = "app.ico";
 #[cfg(not(target_os = "windows"))]
 const ICON_NAME: &str = "discord.png";
 
-/// The old URL to download the most recent old.css file from
+/// The old URL to download the most recent compressed old.css file from
 #[cfg(feature = "autoupdate")]
-const OLD_URL: &str = "https://raw.githubusercontent.com/Bendi11/discord-theme/master/old.css";
+const OLD_URL: &str = "https://raw.githubusercontent.com/Bendi11/discord-theme/master/assets/old-compressed.css";
 
 /// Get the highest-level discord installation directory, not into a specific version folder, but to the root folder containing all of the
 /// versioned folders. This is kept separate from the [get_discord_dir] function because we need the root folder when replacing the Discord icon
