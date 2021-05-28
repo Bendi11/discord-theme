@@ -16,9 +16,11 @@ ureq = {version = "2.1", optional = true} # For downloading the most up to date 
 semver = "0.11" # For parsing the newest discord version string and selecting the newest Discord version
 rasar = {git = "https://github.com/Zerthox/rasar"} # Thanks random guy on the internet for saving me 300 LOC
 
+
 [features]
-autoupdate = ["ureq"]
-default = ["autoupdate"]
+autoupdate = ["ureq"] # Automatically download the newest CSS file from github; increases binary size by around 2MB
+icon = [] # Embed the old.ico file in the executable so that it can be easily replaced; increases binary size by around 50 KB
+default = ["autoupdate", "icon"]
 
 [profile.release]
 lto = true

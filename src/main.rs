@@ -2,9 +2,11 @@ pub mod config;
 use config::Config;
 
 use console::style;
+use console::Attribute;
 use console::Color;
 use console::Style;
 use dialoguer::theme::ColorfulTheme;
+use dialoguer::Input;
 use dialoguer::Select;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
@@ -17,36 +19,65 @@ use std::path::PathBuf;
 #[cfg(not(feature = "autoupdate"))]
 const OLD_THEME: &str = include_str!("../old.css");
 
+/// The icon file that we will swap with Discord's new one, this is Windows-specific
+#[cfg(all(feature = "icon", target_os = "windows"))]
+const OLD_ICON: &[u8] = include_bytes!("../assets/old.ico");
+
+/// The old icon file in png format because linux uses normal images for icons
+#[cfg(all(feature = "icon", not(target_os = "windows")))]
+const OLD_ICON: &[u8] = include_bytes!("../assets/old.png");
+
 /// The old URL to download the most recent old.css file from
 #[cfg(feature = "autoupdate")]
 const OLD_URL: &str = "https://raw.githubusercontent.com/Bendi11/discord-theme/master/old.css";
 
-/// Get the location that Discord was installed to based on the current compilation target and navigate to the highest discord version folder's
-/// core module folder
-fn get_discord_dir() -> PathBuf {
+/// Get the highest-level discord installation directory, not into a specific version folder, but to the root folder containing all of the
+/// versioned folders. This is kept separate from the [get_discord_dir] function because we need the root folder when replacing the Discord icon
+fn get_discord_root() -> PathBuf {
     #[cfg(all(target_os = "windows"))]
-    let mut path = PathBuf::from(format!(
+    let path = PathBuf::from(format!(
         "{}\\Discord",
         env::var("LOCALAPPDATA")
             .expect("LOCALAPPDATA environment variable not present... something is wrong")
     )); //Get the path to discord's modules directory
 
     #[cfg(target_os = "macos")]
-    let mut path = PathBuf::from("/Library/Application Support/Discord"); //We already know the path to the discord install directory
+    let path = PathBuf::from("/Library/Application Support/Discord"); //We already know the path to the discord install directory
 
+    //Make a prompt to request Discord's intstallation path if on linux, because it could be installed in many locations
     #[cfg(target_os = "linux")]
-    let mut path = PathBuf::from("/opt/Discord"); //Get the location of Discord's install
+    let path = PathBuf::from(
+        Input::with_theme(&ColorfulTheme {
+            prompt_style: Style::default().attr(Attribute::Italic).fg(Color::Yellow),
+            error_style: Style::default().attr(Attribute::Bold).fg(Color::Red),
+            ..Default::default()
+        }).with_prompt("Please enter the directory that Discord is installed to (where the 'Discord') binary is located)...").validate_with(|val: &String| {
+            let entered = PathBuf::from(val); //Create a path from the string
+            match entered.exists() {
+                true => match entered.is_dir() {
+                    true => Ok(()),
+                    false => Err("The entered path exists but is not a directory: try removing the file name from the path"),
+                },
+                false => Err("The entered directory does not exist or the application is unable to access it")
+            }
+        }).interact().unwrap_or_else(|e| panic!("Unable to read input from a query: {}", e))
+    );
 
+    path
+}
+
+/// Get the location that Discord was installed to based on the current compilation target and navigate to the highest discord version installed
+fn get_discord_dir(mut root: PathBuf) -> PathBuf {
     //Read all directories in discord's module dir and get the latest version
-    let dirs = fs::read_dir(&path).unwrap_or_else(|_| {
+    let dirs = fs::read_dir(&root).unwrap_or_else(|_| {
         panic!(
             "Failed to read Discord's installation directory from {}, does it exist?",
-            path.display()
+            root.display()
         )
     });
 
     //Get the path to the highest version folder of discord and add it to our path
-    path.push(
+    root.push(
         dirs.filter(|entry| entry.as_ref().unwrap().metadata().unwrap().is_dir()) //Filter for only directories in the iterator
             //Take the maximum semver from the directory
             .max_by(|entry: &std::io::Result<fs::DirEntry>, next| {
@@ -85,11 +116,15 @@ fn get_discord_dir() -> PathBuf {
 
     println!(
         "Got path to Discords highest version folder: {}",
-        style(path.display()).cyan()
+        style(root.display()).cyan()
     );
-    path.push("modules/discord_desktop_core-1/discord_desktop_core"); //Push the path to the discord core module folder
-    path
+
+    root.push("modules/discord_desktop_core-1/discord_desktop_core"); //Push the path to the discord core module folder
+    root
 }
+
+/// Replace the `app.ico` on windows or `app.png` on linux / mac with the old blurple clyde icon
+//fn replace_icon() -> Result<(), std::io::Error> {}
 
 /// Prompt the user to quit the application by entering any character, used to make sure that the program doesn't immediately exit
 /// on error
@@ -154,7 +189,7 @@ fn make_backup(dir: PathBuf) {
 
 /// Run the discord theme setter main application
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    //Set a panic handler for panic printing without weird debug info
+    //Set a panic handler for printing error messages cleanly
     std::panic::set_hook(Box::new(|pinfo: &std::panic::PanicInfo| {
         if let Some(s) = pinfo.payload().downcast_ref::<String>() {
             eprintln!(
@@ -207,7 +242,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             match selection {
                 //Restore a backup of Discord's asar
                 1 => {
-                    let dir = get_discord_dir(); //Get the path to Discord
+                    let root = get_discord_root(); //Get the root folder of Discord by searching or querying
+                    let dir = get_discord_dir(root); //Get the path to Discord
                                                  //Get the path to both the backup and archive files
                     let (backup, real) = (dir.join("core.asar.backup"), dir.join("core.asar"));
                     //If the file doesn't exist then print an error and prompt the user to quit
@@ -282,8 +318,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         js = cfg.customjs
     );
 
-    //Get the (platform-specific) directory where Discord was installed to
-    let mut path = get_discord_dir();
+    let root = get_discord_root(); //Get the Discord root folder by automatic searching or querying on Linux
+
+    let mut path = get_discord_dir(root); //Get the path to the highest version Discord installation
 
     //If make_backup is on then make a backup asar file
     if cfg.make_backup {
