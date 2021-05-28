@@ -7,6 +7,7 @@ use console::Style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
 use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use std::env;
 use std::fs;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -99,6 +100,58 @@ fn prompt_quit(errcode: i32) -> ! {
     std::process::exit(errcode);
 }
 
+/// Create a backup of Discord's data core.asar file and return any errors that occurred. Because making a backup is deemed important,
+/// this function will `panic` instead of returning a `Result`. This is the default behavior, but if the user wants they can edit the config file and turn
+/// backups off.
+fn make_backup(dir: PathBuf) {
+    let mut backup_path = dir.clone();
+    backup_path.push("core.asar.backup"); //Add the backup file name to the discord dir
+
+    //If the path already exists, then don't overwrite the backup. The reason that we do this instead of overwriting is because we want to keep the original Discord data
+    //intact, with no changes from our program.
+    if backup_path.exists() {
+        println!("Discord backup file {} already exists, not creating a new backup that overrides the old one", backup_path.display());
+    }
+    // Otherwise create a backup file
+    else {
+        let mut original = fs::File::open(format!("{}/core.asar", dir.display())).unwrap_or_else(|e| panic!("Failed to open Discord's original core.asar file when creating a backup! Error: {}", e)); //Open the Discord archive file
+        let backup = fs::File::create(&backup_path).unwrap_or_else(|e| {
+            panic!(
+                "Failed to create a backup file for Discord's data! Error: {}",
+                e
+            )
+        }); //Create the backup file
+
+        //Create a progress bar that shows the backup file copying progress
+        let copyprog = ProgressBar::new(match original.metadata() {
+            Ok(meta) => meta.len(),
+            Err(_) => 100,
+        }); //Create a progress bar to show backup copy progress
+        copyprog.set_style(
+            ProgressStyle::default_bar()
+                .template("{bar} {bytes}/{total_bytes} - {binary_bytes_per_sec}"),
+        );
+        copyprog.println("Creating a backup of Discord's files...");
+
+        std::io::copy(&mut original, &mut copyprog.wrap_write(backup)).unwrap_or_else(|e| {
+            panic!(
+                "Failed to copy Discord's core.asar file to a backup file! Error: {}",
+                e
+            )
+        }); //Wrap the writer in a progress bar and copy the file
+
+        //Copy the file and write an error message on error
+        if let Err(e) = fs::copy(format!("{}/core.asar", dir.display()), &backup_path) {
+            eprintln!(
+                "Failed to make a backup of file {}! Reason {:?}",
+                backup_path.display(),
+                style(e).red()
+            );
+            prompt_quit(-1);
+        }
+    }
+}
+
 /// Run the discord theme setter main application
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     //Set a panic handler for panic printing without weird debug info
@@ -126,12 +179,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let theme = match env::args().nth(1) {
         //Read the user CSS theme to a string and escape any '`' characters to not mess up CSS insertion
         Some(p) => std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("Failed to read custom theme CSS file: {:?}", e)),
-        //No input path given, print an error and exit
+        //No input path given, ask for either a theme download, backup restoration, or exit
         None => {
-            //Print the error message in red
-            //println!("{}", style("No input given! Drag and drop a .css theme file onto the executable or pass a path as an argument on the command line if you would like to apply a custom css theme, or select an option below: ").yellow());
-            //println!("1.) Patch Discord to have the old theme\n2.) Reset Discord's theme to factory default from a backup\n3.) Quit the program"); //Prompt the user to reset Discord if no input was given
-
             #[cfg(feature = "autoupdate")]
             let patch_text = "Download the latest old theme from Github and apply it do Discord";
 
@@ -178,41 +227,38 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", style("Restored backup file successfully").green());
                     prompt_quit(0);
                 },
-                //Download or use the included old theme and apply it
+                #[cfg(feature = "autoupdate")]
+                //Download the most recent version of the theme from github
                 0 => {
-                    //Download the most recent old.css file from github if the feature is enabled
-                    #[cfg(feature = "autoupdate")]
-                    println!(
-                        "{}",
-                        style(format!("Downloading latest old theme from {}", OLD_URL)).blue()
-                    );
+                    let dlprog = ProgressBar::new_spinner(); //Create a spinner to show download progress
+                    dlprog.enable_steady_tick(10);
+                    dlprog.set_message(format!("Downloading most recent theme file from {}...", OLD_URL));
 
-                    //Download the newest version of the theme
-                    #[cfg(feature = "autoupdate")]
+                    //Download the newest version of the theme from github
                     let text = ureq::get(OLD_URL)
                         .call()
                         .unwrap_or_else(|e| panic!("Failed to download newest old theme from {} with error: {}", OLD_URL, e))
                         .into_string()
                         .unwrap_or_else(|e| panic!("Failed to get text response from {} when downloading newest theme: {}", OLD_URL, e));
-                    #[cfg(feature = "autoupdate")]
                     println!(
                         "{}",
                         style("Downloaded newest version of theme successfully").green()
                     );
 
-                    //Otherwise just return the old.css that this was compiled with
-                    #[cfg(not(feature = "autoupdate"))]
-                    let text = OLD_THEME.to_owned();
+                    dlprog.finish_with_message("Downloaded most updated theme file!");
+
                     //Return the text that was returned based on conditional compilation
                     text
-                } 
+                } ,
+                #[cfg(not(feature = "autoupdate"))]
+                0 => OLD_THEME.to_owned(),
                 //Return the default old theme CSS string
                 _ => std::process::exit(0), //Exit the program if the user doesn't want to roll back changes or set the old theme
             }
         }
     }
-    .replace("\\", "\\\\")
-    .replace("`", "\\`");
+    .replace("\\", "\\\\") //Escape characters in CSS will mess up Javascript, so escape the escape sequences
+    .replace("`", "\\`"); //In ES6 template literals, the only character needing escaping is the backtick. I don't know if CSS will ever have this character but just in case
 
     let cfg = Config::load(); //Load the configuration toml file or create a default one
 
@@ -236,36 +282,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         js = cfg.customjs
     );
 
+    //Get the (platform-specific) directory where Discord was installed to
     let mut path = get_discord_dir();
 
     //If make_backup is on then make a backup asar file
     if cfg.make_backup {
-        let mut backup_path = path.clone();
-        backup_path.push("core.asar.backup"); //Add the backup file name to the discord dir
-                                              //If the path already exists, then don't overwrite the backup
-        if backup_path.exists() {
-            println!("Discord backup file {} already exists, not creating a new backup that overrides the old one", backup_path.display());
-        }
-        // Otherwise create a backup file
-        else {
-            println!("Creating a backup of the original core.asar file!");
-            //Copy the file and write an error message on error
-            if let Err(e) = fs::copy(format!("{}/core.asar", path.display()), &backup_path) {
-                eprintln!(
-                    "Failed to make a backup of file {}! Reason {:?}",
-                    backup_path.display(),
-                    style(e).red()
-                );
-                prompt_quit(-1);
-            }
-        }
+        make_backup(path.clone());
     }
 
     path.push("core.asar"); //Push the core file name to the path
 
     //Create a spinner to show that we are reading Discord's files
     let js_prog = ProgressBar::new_spinner();
-    js_prog.set_message("Reading Discord's archive files...");
+    js_prog.set_message("Unpacking Discord's archive files...");
     js_prog.enable_steady_tick(10);
 
     //Unpack the asar archive
@@ -273,8 +302,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     //Make a path to the unpacked js file
     let main_file = PathBuf::from("./coreasar/app/mainScreen.js");
-
-    
 
     //Open the asar electron archive in a buffered reader
     let mut js = BufReader::new(
@@ -294,8 +321,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     js.read_to_end(&mut jsstr)?; //Read the file into a string for string replacement
     let mut jsstr = unsafe { String::from_utf8_unchecked(jsstr) }; //Turn the bytes into an ASCII string
 
+    //Finish the first progress bar
     js_prog.finish_with_message("Unpacked Discord's archive");
 
+    //Create a spinner to show that we are doing the search and replace for the custom CSS theme
     let ins_prog = ProgressBar::new_spinner();
     ins_prog.set_message("Inserting CSS theme into Discord's archive...");
     ins_prog.enable_steady_tick(10);
@@ -358,6 +387,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     ins_prog.finish_with_message("Inserted user CSS into discord's archive");
 
+    //Create a spinner to show that we are re-packing discord's asar file
     let pack_prog = ProgressBar::new_spinner();
     pack_prog.set_message("Re-packing modified Discord archive files...");
     pack_prog.enable_steady_tick(10);
@@ -369,7 +399,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     drop(js);
     rasar::pack("./coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
 
-    pack_prog.finish_with_message("Re-packed modified Discord archive, restart Discord for the changes to take effect");
+    pack_prog.finish_with_message(
+        "Re-packed modified Discord archive, restart Discord for the changes to take effect",
+    );
     prompt_quit(0);
 }
 

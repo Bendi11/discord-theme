@@ -12,6 +12,9 @@ pub struct Config {
     pub customjs: String,
     /// Wether or not to make a backup of the original electron .asar file
     pub make_backup: bool,
+
+    /// Wether to attempt to replace Discord's desktop icon or not
+    pub replace_icon: bool,
 }
 
 impl Config {
@@ -20,12 +23,14 @@ impl Config {
         let toml = toml::toml! {
             custom-js = ""
             make-backup = true
+            replace-icon = true
         };
         //Write the TOML configuration to the default file location
         std::fs::write(CONFIG_PATH, toml::to_vec(&toml).unwrap()).unwrap();
         Self {
             customjs: "".into(),
             make_backup: true,
+            replace_icon: true,
         }
     }
 
@@ -53,7 +58,8 @@ impl Config {
                         .as_str()
                         .unwrap_or("")
                         .replace("`", "\\`"),
-                    make_backup: config["make-backup"].as_bool().unwrap_or(false), //Get wether or not to make a backup of the electron file
+                    make_backup: config["make-backup"].as_bool().unwrap_or(true), //Get wether or not to make a backup of the electron file
+                    replace_icon: config["replace-icon"].as_bool().unwrap_or(true),
                 }
             }
             Err(_) => {
