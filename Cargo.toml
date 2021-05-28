@@ -19,8 +19,7 @@ rasar = {git = "https://github.com/Zerthox/rasar"} # Thanks random guy on the in
 
 [features]
 autoupdate = ["ureq"] # Automatically download the newest CSS file from github; increases binary size by around 2MB
-icon = [] # Embed the old.ico file in the executable so that it can be easily replaced; increases binary size by around 50 KB
-default = ["autoupdate", "icon"]
+default = ["autoupdate"]
 
 [profile.release]
 lto = true

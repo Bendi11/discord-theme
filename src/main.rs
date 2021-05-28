@@ -2,11 +2,11 @@ pub mod config;
 use config::Config;
 
 use console::style;
-use console::Attribute;
 use console::Color;
 use console::Style;
 use dialoguer::theme::ColorfulTheme;
-use dialoguer::Input;
+#[cfg(target_os = "linux")]
+use dialoguer::{Input, Attribute};
 use dialoguer::Select;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
@@ -20,12 +20,20 @@ use std::path::PathBuf;
 const OLD_THEME: &str = include_str!("../old.css");
 
 /// The icon file that we will swap with Discord's new one, this is Windows-specific
-#[cfg(all(feature = "icon", target_os = "windows"))]
+#[cfg(target_os = "windows")]
 const OLD_ICON: &[u8] = include_bytes!("../assets/old.ico");
 
 /// The old icon file in png format because linux uses normal images for icons
-#[cfg(all(feature = "icon", not(target_os = "windows")))]
+#[cfg(not(target_os = "windows"))]
 const OLD_ICON: &[u8] = include_bytes!("../assets/old.png");
+
+/// The name of Discord's icon file name
+#[cfg(target_os = "windows")]
+const ICON_NAME: &str = "app.ico";
+
+/// The non-windows discord icon file name
+#[cfg(not(target_os = "windows"))]
+const ICON_NAME: &str = "discord.png";
 
 /// The old URL to download the most recent old.css file from
 #[cfg(feature = "autoupdate")]
@@ -123,8 +131,13 @@ fn get_discord_dir(mut root: PathBuf) -> PathBuf {
     root
 }
 
-/// Replace the `app.ico` on windows or `app.png` on linux / mac with the old blurple clyde icon
-//fn replace_icon() -> Result<(), std::io::Error> {}
+/// Replace the `app.ico` on windows or `app.png` on linux / mac with the old blurple clyde icon that is embedded in this executable
+#[inline]
+fn replace_icon(root: &PathBuf) -> Result<(), std::io::Error> {
+    //Overwrite the icon file
+    std::fs::write(root.join(ICON_NAME), OLD_ICON) 
+
+}
 
 /// Prompt the user to quit the application by entering any character, used to make sure that the program doesn't immediately exit
 /// on error
@@ -138,7 +151,7 @@ fn prompt_quit(errcode: i32) -> ! {
 /// Create a backup of Discord's data core.asar file and return any errors that occurred. Because making a backup is deemed important,
 /// this function will `panic` instead of returning a `Result`. This is the default behavior, but if the user wants they can edit the config file and turn
 /// backups off.
-fn make_backup(dir: PathBuf) {
+fn make_backup(root: PathBuf, dir: PathBuf) {
     let mut backup_path = dir.clone();
     backup_path.push("core.asar.backup"); //Add the backup file name to the discord dir
 
@@ -185,6 +198,22 @@ fn make_backup(dir: PathBuf) {
             prompt_quit(-1);
         }
     }
+
+
+    //Create a backup icon file now
+    
+    let icon = root.join(ICON_NAME); //Get the discord icon name
+
+    let icon_backup = root.join("icon-backup"); //We store the backup without extension because it doesn't really matter and it allows me to write non platform-specific code
+    //Only create a backup if there is not a backup there already, this is so that we don't overwrite the old icon backup 
+    if !icon_backup.exists() {
+        //Copy the file to a backup
+        match std::fs::copy(icon, icon_backup) {
+            Ok(_) => (),
+            Err(e) => println!("{}", style(format!("Failed to make a backup of Discord's icon: {}", e)).fg(Color::Color256(172)) ), //Print a warning but don't panic if we couldn't make an icon backup
+        }
+    }
+
 }
 
 /// Run the discord theme setter main application
@@ -210,7 +239,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         prompt_quit(-1);
     }));
 
-    //Get the input file path from the arguments
+    //Get the input file path from the arguments or let the user select an option
     let theme = match env::args().nth(1) {
         //Read the user CSS theme to a string and escape any '`' characters to not mess up CSS insertion
         Some(p) => std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("Failed to read custom theme CSS file: {:?}", e)),
@@ -243,7 +272,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 //Restore a backup of Discord's asar
                 1 => {
                     let root = get_discord_root(); //Get the root folder of Discord by searching or querying
-                    let dir = get_discord_dir(root); //Get the path to Discord
+                    let dir = get_discord_dir(root.clone()); //Get the path to Discord
                                                  //Get the path to both the backup and archive files
                     let (backup, real) = (dir.join("core.asar.backup"), dir.join("core.asar"));
                     //If the file doesn't exist then print an error and prompt the user to quit
@@ -255,8 +284,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     let _ = fs::remove_file(&real); //Remove the original asar file if it exists
                                                     //Copy the backup file to the real file name, don't rename because that would effectively delete the original backup
                     if let Err(e) = fs::copy(&backup, real) {
-                        eprintln!("Failed to restore backup file {} with error {}, reinstall Discord to restore factory default settings", backup.display(), e);
+                        eprintln!("{}", style(format!("Failed to restore backup file {} with error {}, reinstall Discord to restore factory default settings", backup.display(), e)).fg(Color::Red));
                         prompt_quit(-1);
+                    }
+
+                    let (iconb, iconr) = (dir.join("icon-backup"), dir.join(ICON_NAME)); //Get a path to Discord's icon file and backup file
+                    if let Err(e) = fs::copy(iconb, iconr) {
+                        eprintln!("{}", style(format!("Failed to restore Discord's icon from a backup file: {}", e)).fg(Color::Color256(172)) ); //Print a warning if the backup was not restored
                     }
 
                     //Print that the operation was good and the backup was restored
@@ -320,12 +354,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let root = get_discord_root(); //Get the Discord root folder by automatic searching or querying on Linux
 
-    let mut path = get_discord_dir(root); //Get the path to the highest version Discord installation
+    let mut path = get_discord_dir(root.clone()); //Get the path to the highest version Discord installation
 
+    //Replace the icon file if needed
+    if cfg.replace_icon {
+        if let Err(e) = replace_icon(&root) {
+            eprintln!("{}", style(format!("Failed to replace Discord's icon file: {}", e)).fg(Color::Color256(172))); //Print a warning but don't fail if the icon couldn't be swapped
+        }
+    }
     //If make_backup is on then make a backup asar file
     if cfg.make_backup {
-        make_backup(path.clone());
+        make_backup(root, path.clone());
     }
+    
 
     path.push("core.asar"); //Push the core file name to the path
 
