@@ -2,6 +2,11 @@ pub mod config;
 use config::Config;
 
 use console::style;
+use console::Color;
+use console::Style;
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::Select;
+use indicatif::ProgressBar;
 use std::env;
 use std::fs;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -32,7 +37,12 @@ fn get_discord_dir() -> PathBuf {
     let mut path = PathBuf::from("/opt/Discord"); //Get the location of Discord's install
 
     //Read all directories in discord's module dir and get the latest version
-    let dirs = fs::read_dir(&path).expect("Failed to read discord data directory!");
+    let dirs = fs::read_dir(&path).unwrap_or_else(|_| {
+        panic!(
+            "Failed to read Discord's installation directory from {}, does it exist?",
+            path.display()
+        )
+    });
 
     //Get the path to the highest version folder of discord and add it to our path
     path.push(
@@ -119,14 +129,35 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         //No input path given, print an error and exit
         None => {
             //Print the error message in red
-            eprintln!("{}", style("No input given! Drag and drop a .css theme file onto the executable or pass a path as an argument on the command line.").yellow());
-            println!("No input was given to the program, would you like to\n1.) Patch Discord to have the old theme\n2.) Reset Discord's theme to factory default from a backup\n3.) Quit the program"); //Prompt the user to reset Discord if no input was given
+            //println!("{}", style("No input given! Drag and drop a .css theme file onto the executable or pass a path as an argument on the command line if you would like to apply a custom css theme, or select an option below: ").yellow());
+            //println!("1.) Patch Discord to have the old theme\n2.) Reset Discord's theme to factory default from a backup\n3.) Quit the program"); //Prompt the user to reset Discord if no input was given
 
-            let mut input = String::new(); //Make a string to hold the user input
-            std::io::stdin().read_line(&mut input).unwrap(); //Read one line from stdin
-            match input.trim() {
+            #[cfg(feature = "autoupdate")]
+            let patch_text = "Download the latest old theme from Github and apply it do Discord";
+
+            #[cfg(not(feature = "autoupdate"))]
+            let patch_text = "Apply the default old theme that the program was compiled with";
+            
+            
+            let selection = Select::with_theme(&ColorfulTheme {
+                prompt_style: Style::default().fg(Color::Blue).bold(),
+                active_item_style: Style::default().fg(Color::Green),
+                active_item_prefix: style(">>".to_owned()).blink(),
+                hint_style: Style::default().fg(Color::Color256(252)),
+
+                ..Default::default()
+            }).with_prompt("No input given! Drag and drop a .css theme file onto the executable or pass a path as an argument on the command line if you would like to apply a custom css theme, or select an option")
+            
+            .item(patch_text)
+            .item("Reset Discord's theme to factory defaults from a backup file")
+            .item("Exit the program")
+            .default(0)
+            .interact()
+            .expect("Failed to take a selection from the menu!");
+
+            match selection {
                 //Restore a backup of Discord's asar
-                "2" => {
+                1 => {
                     let dir = get_discord_dir(); //Get the path to Discord
                                                  //Get the path to both the backup and archive files
                     let (backup, real) = (dir.join("core.asar.backup"), dir.join("core.asar"));
@@ -146,8 +177,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     //Print that the operation was good and the backup was restored
                     println!("{}", style("Restored backup file successfully").green());
                     prompt_quit(0);
-                }
-                "1" => {
+                },
+                //Download or use the included old theme and apply it
+                0 => {
                     //Download the most recent old.css file from github if the feature is enabled
                     #[cfg(feature = "autoupdate")]
                     println!(
@@ -173,7 +205,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     let text = OLD_THEME.to_owned();
                     //Return the text that was returned based on conditional compilation
                     text
-                } //Return the default old theme CSS string
+                } 
+                //Return the default old theme CSS string
                 _ => std::process::exit(0), //Exit the program if the user doesn't want to roll back changes or set the old theme
             }
         }
@@ -230,11 +263,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     path.push("core.asar"); //Push the core file name to the path
 
+    //Create a spinner to show that we are reading Discord's files
+    let js_prog = ProgressBar::new_spinner();
+    js_prog.set_message("Reading Discord's archive files...");
+    js_prog.enable_steady_tick(10);
+
     //Unpack the asar archive
     rasar::extract(path.to_str().unwrap(), "./coreasar")?;
 
     //Make a path to the unpacked js file
     let main_file = PathBuf::from("./coreasar/app/mainScreen.js");
+
+    
 
     //Open the asar electron archive in a buffered reader
     let mut js = BufReader::new(
@@ -253,6 +293,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut jsstr = Vec::new();
     js.read_to_end(&mut jsstr)?; //Read the file into a string for string replacement
     let mut jsstr = unsafe { String::from_utf8_unchecked(jsstr) }; //Turn the bytes into an ASCII string
+
+    js_prog.finish_with_message("Unpacked Discord's archive");
+
+    let ins_prog = ProgressBar::new_spinner();
+    ins_prog.set_message("Inserting CSS theme into Discord's archive...");
+    ins_prog.enable_steady_tick(10);
 
     //If the injection string is already in the asar archive then don't replace anything but the user CSS
     match jsstr.find("CSS_INJECTION_USER_CSS") {
@@ -310,16 +356,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    ins_prog.finish_with_message("Inserted user CSS into discord's archive");
+
+    let pack_prog = ProgressBar::new_spinner();
+    pack_prog.set_message("Re-packing modified Discord archive files...");
+    pack_prog.enable_steady_tick(10);
+
     let mut asar = BufWriter::new(fs::File::create(main_file)?); //Open a new buffer writer to write the contents of the file again
     asar.write_all(jsstr.as_bytes())?; //Write all bytes to the file
 
     drop(asar);
     drop(js);
-    println!(
-        "{}",
-        style("Successfully inserted user CSS into Discord!").green()
-    );
     rasar::pack("./coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
+
+    pack_prog.finish_with_message("Re-packed modified Discord archive, restart Discord for the changes to take effect");
     prompt_quit(0);
 }
 

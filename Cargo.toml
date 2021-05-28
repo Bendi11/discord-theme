@@ -9,6 +9,9 @@ edition = "2018"
 [dependencies]
 toml = "0.5.8" # For config file format
 console = "0.14.1" # For color formatted console
+indicatif = "0.16" # For progress bars with file operations
+dialoguer = "0.8" # For selection menus when no arguments are given
+
 ureq = {version = "2.1", optional = true} # For downloading the most up to date css stylesheet from Github
 semver = "0.11" # For parsing the newest discord version string and selecting the newest Discord version
 rasar = {git = "https://github.com/Zerthox/rasar"} # Thanks random guy on the internet for saving me 300 LOC
