@@ -37,7 +37,8 @@ const ICON_NAME: &str = "discord.png";
 
 /// The old URL to download the most recent compressed old.css file from
 #[cfg(feature = "autoupdate")]
-const OLD_URL: &str = "https://raw.githubusercontent.com/Bendi11/discord-theme/master/assets/old-compressed.css";
+const OLD_URL: &str =
+    "https://raw.githubusercontent.com/Bendi11/discord-theme/master/assets/old-compressed.css";
 
 /// Get the highest-level discord installation directory, not into a specific version folder, but to the root folder containing all of the
 /// versioned folders. This is kept separate from the [get_discord_dir] function because we need the root folder when replacing the Discord icon
@@ -225,7 +226,7 @@ fn make_backup(root: PathBuf, dir: PathBuf) {
     }
 }
 
-/// Run the discord theme setter main application
+/// Run the discord theme setter application
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     //Set a panic handler for printing error messages cleanly
     std::panic::set_hook(Box::new(|pinfo: &std::panic::PanicInfo| {
@@ -260,7 +261,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(not(feature = "autoupdate"))]
             let patch_text = "Apply the default old theme that the program was compiled with";
             
-            
+            //Make a menu for selecting what the user wants to do
             let selection = Select::with_theme(&ColorfulTheme {
                 prompt_style: Style::default().fg(Color::Blue).bold(),
                 active_item_style: Style::default().fg(Color::Green),
@@ -375,7 +376,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut path = get_discord_dir(root.clone()); //Get the path to the highest version Discord installation
 
-    //Replace the icon file if needed
+    //Replace the icon file if the option is specified
     if cfg.replace_icon {
         if let Err(e) = replace_icon(&root) {
             eprintln!(
@@ -385,12 +386,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ); //Print a warning but don't fail if the icon couldn't be swapped
         }
     }
+
     //If make_backup is on then make a backup asar file
     if cfg.make_backup {
         make_backup(root, path.clone());
     }
 
-    path.push("core.asar"); //Push the core file name to the path
+    path.push("core.asar"); //Push the core archive file name to the path
 
     //Create a spinner to show that we are reading Discord's files
     let js_prog = ProgressBar::new_spinner();

@@ -38,26 +38,28 @@ impl Config {
     pub fn load() -> Self {
         match fs::read_to_string(CONFIG_PATH) {
             Ok(buf) => {
-                let config = match buf.parse::<toml::Value>() {
-                    //Make a toml from the file's contents
-                    Ok(toml) => toml, //Return the TOML value
-                    Err(e) => {
-                        eprintln!(
+                let config =
+                    match buf.parse::<toml::Value>() {
+                        //Make a toml from the file's contents
+                        Ok(toml) => toml, //Return the TOML value
+                        Err(e) => {
+                            eprintln!(
                             "{} {}",
-                            style("Failed to parse config.toml, switching to default file...")
+                            style("Failed to parse config.toml, switching to default file. Error: ")
                                 .red(),
                             e
                         );
-                        return Self::default_file();
-                    } //Return a default file if there was an error
-                };
+                            return Self::default_file();
+                        } //Return a default file if there was an error
+                    };
 
                 Self {
                     //Get the custom javascript and escape the '`' character so that javascript insertion is not messed up
                     customjs: config["custom-js"]
                         .as_str()
                         .unwrap_or("")
-                        .replace("`", "\\`"),
+                        .replace("`", "\\`") //Escape any characters that would mess up Discord's files
+                        .replace("\\", "\\\\"),
                     make_backup: config["make-backup"].as_bool().unwrap_or(true), //Get wether or not to make a backup of the electron file
                     replace_icon: config["replace-icon"].as_bool().unwrap_or(true),
                 }
