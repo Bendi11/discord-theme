@@ -1,8 +1,5 @@
 # discord-theme
-Discord themer that will patch custom css and insert javascript into Discord. 
-
-## Replacing Discord's New Theme With the Old One
-Just run the executable with no arguments or drag and dropped files; a menu should appear asking if you want to patch Discord's theme back to the older version
+Patch Discord's eye-straining theme back to the nice blurple and grey.
 
 It currently changes
 - Clyde svg is back to the normal clyde
