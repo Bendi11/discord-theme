@@ -107,6 +107,7 @@ dependencies = [
  "indicatif",
  "rasar",
  "semver",
+ "serde_json",
  "toml",
  "ureq",
 ]

@@ -1,4 +1,5 @@
 pub mod config;
+pub mod asar;
 use config::Config;
 
 use console::style;
@@ -14,6 +15,7 @@ use std::env;
 use std::fs;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
+
 
 /// The old CSS theme to insert if no input is given to the exe
 #[cfg(not(feature = "autoupdate"))]
