@@ -1,16 +1,16 @@
 //! The `asar` module provides a way to manipulate Electron's .asar archive file format 
 //! using the [Archive] struct
 
-use std::{collections::HashMap, fs::File, io::{self, Read, Seek, SeekFrom, Write}, path::Path};
+use std::{collections::HashMap, ffi::OsStr, fs::File, io::{self, Read, Seek, SeekFrom, Write}, path::Path};
 
-/// The `Entry` struct represents one file or directory in an asar archive's header
-pub enum Entry {
+/// The `Header` struct represents one file or directory in an asar archive's header portion
+enum Header {
     /// The `Dir` variant contains a list of more entries that the directory contains
     Dir {
         /// The name of this directory
         name: String,
         /// The files or directories that this directory contains
-        items: HashMap<String, Entry>,
+        items: HashMap<String, Header>,
     },
 
     /// The `File` variant represents a file with information on how to read the file from an archive like offset and file size
@@ -25,7 +25,7 @@ pub enum Entry {
     },
 }
 
-impl Entry {
+impl Header {
     /// Check if this Entry is a directory
     pub const fn is_dir(&self) -> bool {
         matches!(self, Self::Dir{name: _, items: _})
@@ -76,9 +76,15 @@ impl Entry {
             }
         } )
     }
+
+    /// Get a file from this `Header` if it is a directory and the file exists, otherwise return `None`
+    pub fn get_file(&self, file: &str) -> Option<&Header> {
+        match self {
+            Self::Dir{name: _, items} => items.get(file),
+            _ => None
+        }
+    }
 }
-
-
 
 
 /// The `Archive` struct contains all information stored in an asar archive file and methods to both unpack 
@@ -87,7 +93,7 @@ impl Entry {
 /// This is commonly a file, and represents the binary data of the asar archive
 pub struct Archive<T: Read + Seek + Sized> {
     /// The `header` field contains information like the directory layout and sizes of files
-    header: HashMap<String, Entry>,
+    header: HashMap<String, Header>,
 
     /// The backing storage that contains all data for the asar archive
     back: T,
@@ -131,7 +137,7 @@ impl<T: Read + Seek + Sized> Archive<T> {
         let mut err = Ok(());
         //Parse all headers from the archive file
         self.header = header_json.as_object().unwrap().into_iter().scan(&mut err, |err, (name, val)| {
-            match Entry::from_json(name.clone(), val) {
+            match Header::from_json(name.clone(), val) {
                 Ok(ent) => Some( (name.clone(), ent) ),
                 Err(_) => {
                     **err = Err( Error::InvalidJson );
@@ -142,6 +148,20 @@ impl<T: Read + Seek + Sized> Archive<T> {
         err?; //Check if we had any errors parsing headers
         Ok(())
     }
+
+    /// Read a file contents into a raw buffer using it's path
+    fn raw_file(&mut self, path: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
+        let path = path.as_ref().iter();
+        let mut current = path.next()?;
+        let file = path.iter().fold(initial_state, f)
+    }
+}
+
+/// The `Entry` struct represents one file in the asar archive, and presents a similar API to the `File` type provided by the standard
+/// library. It contains a mutable reference to the asar archive, so only one of these may be held at a time.
+pub struct Entry<'a, T: Read + Seek + Sized> {
+    /// The internal reference to the backing archive that we read from and write to
+    ar: &'a mut Archive<T>, 
 }
 
 /// The `Error` enum represents all errors that can happen when parsing an asar archive
@@ -155,6 +175,8 @@ pub enum Error {
     /// Invalid UTF8 text in storage
     InvalidUTF8,
 
+    /// The file at the requested asar archive path doesn't exist
+    NoFile,
 }
 
 impl From<serde_json::Error> for Error {
