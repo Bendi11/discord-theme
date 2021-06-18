@@ -412,9 +412,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let js_prog = spinner();
     js_prog.set_message("Unpacking Discord's archive files...");
 
-    //Unpack the asar archive
-    rasar::extract(path.to_str().unwrap(), "./coreasar")?;
-
     let mut archive_file = std::fs::OpenOptions::new().read(true).open(&path)?;
     let mut archive = asar::Archive::read(&mut archive_file)?; //Open the asar archive and parse it 
     drop(archive_file);
@@ -512,9 +509,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut archive_file = std::fs::OpenOptions::new().write(true).open(path)?;
     archive.pack(&mut archive_file, true)?; //Re-pack the Discord asar file
 
-    let mut archive_file = std::fs::OpenOptions::new().write(true).create(true).open("./test.asar")?;
-    archive.pack(&mut archive_file, true)?; //Re-pack the Discord asar file
-
     pack_prog.finish_with_message(
         style("Re-packed modified Discord archive, restart Discord for the changes to take effect")
             .fg(Color::Green)
@@ -522,7 +516,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     drop(pack_prog);
-    //rasar::pack("./coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
 
     prompt_quit(0);
 }
