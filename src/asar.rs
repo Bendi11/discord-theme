@@ -1,12 +1,7 @@
 //! The `asar` module provides a way to manipulate Electron's .asar archive file format
 //! using the [Archive] struct
 
-use std::{
-    collections::HashMap,
-    fmt,
-    io::{self, Cursor, Read, Seek, SeekFrom, Write},
-    path::Path,
-};
+use std::{collections::HashMap, fmt, io::{self, Cursor, Read, Seek, SeekFrom, Write}, path::Path};
 
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -391,7 +386,7 @@ impl Archive {
     fn get_entry(&self, path: impl AsRef<Path>) -> Option<&Entry> {
         let path = path.as_ref();
         match path.parent() {
-            Some(dir) if dir.as_os_str().is_empty() => {
+            Some(dir) if !dir.as_os_str().is_empty() => {
                 let mut entry = self
                     .data
                     .get(dir.components().next()?.as_os_str().to_str().unwrap())?; //Get the directory at the first path
@@ -410,7 +405,7 @@ impl Archive {
     fn get_entry_mut(&mut self, path: impl AsRef<Path>) -> Option<&mut Entry> {
         let path = path.as_ref();
         match path.parent() {
-            Some(dir) if dir.as_os_str().is_empty() => {
+            Some(dir) if !dir.as_os_str().is_empty() => {
                 let mut entry = self
                     .data
                     .get_mut(dir.components().next()?.as_os_str().to_str().unwrap())?; //Get the directory at the first path
@@ -501,6 +496,47 @@ impl Archive {
         ar.write_all(buffer.into_inner().as_ref())?; //Write the buffer bytes to the file
         Ok(())
     }
+
+    /// Add a file or directory to the archive at the specified path
+    fn add_entry<P: AsRef<Path>>(&mut self, path: P, item: Entry) -> Option<()> {
+        let path = path.as_ref();
+        match path.parent() {
+            Some(s) if !s.as_os_str().is_empty() => {
+                let dir = self.get_dir_mut(s)?;
+                dir.items.insert(path.file_name()?.to_str()?.to_string(), item);
+                Some(())
+            },
+            _ => {
+                self.data.insert(path.file_name()?.to_str()?.to_string(), item);
+                Some(())
+            }
+        }
+    }   
+
+    /// Add a file at the specified location
+    pub fn add_file<P: AsRef<Path>>(&mut self, path: P) -> bool {
+        let path = path.as_ref();
+        self.add_entry(path, Entry::File(FileEntry{
+            name: path.file_name().unwrap().to_str().unwrap().to_owned(),
+            data: Cursor::new(Vec::new())
+        })).is_some()
+    }
+
+    /// Add a directory at the specified location
+    pub fn add_dir<P: AsRef<Path>>(&mut self, path: P) -> bool {
+        let path = path.as_ref();
+        self.add_entry(path, Entry::Dir(DirEntry{
+            name: path.file_name().unwrap().to_str().unwrap().to_owned(),
+            items: HashMap::new()
+        })).is_some()
+    }
+        
+    /// Return a new `Archive` with no entries
+    pub fn new() -> Self {
+        Self {
+            data: HashMap::new(),
+        }
+    }
 }
 
 impl fmt::Display for Archive {
@@ -568,6 +604,9 @@ impl std::error::Error for Error {
 
 mod tests {
     #[allow(unused_imports)]
+    use std::io::Write;
+
+    #[allow(unused_imports)]
     use indicatif::ProgressBar;
 
     //This is a bug, I need to import items for the program to compile
@@ -576,17 +615,18 @@ mod tests {
 
     #[test]
     pub fn loading() {
-        let mut file = std::fs::OpenOptions::new()
-            .read(true)
-            .open("out.asar")
-            .unwrap();
-        let asar = Archive::read(&mut file).unwrap();
-        println!("{}", asar);
+        let mut archive = Archive::new();
+        archive.add_dir("test");
+        archive.add_file("test/test.txt");
+        println!("{}", archive);
+        let file = archive.get_file_mut("test/test.txt").unwrap();
+        file.write_fmt(format_args!("Testing!")).unwrap();
+        
         //println!("File config.rs: {:#?}", asar.get_file("Banner.png"));
         //panic!();
         //std::fs::write("out.png", &asar.get_file("Banner.png").unwrap()).unwrap();
 
         let mut writer = std::fs::File::create("write.asar").unwrap(); 
-        asar.pack(&mut writer, false).unwrap();
+        archive.pack(&mut writer, false).unwrap();
     }
 }
