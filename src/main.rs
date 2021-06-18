@@ -13,7 +13,7 @@ use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use std::env;
 use std::fs;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::Read;
 use std::path::PathBuf;
 
 /// The old CSS theme to insert if no input is given to the exe
@@ -244,6 +244,9 @@ fn make_backup(root: PathBuf, dir: PathBuf) {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     //Set a panic handler for printing error messages cleanly
     std::panic::set_hook(Box::new(|pinfo: &std::panic::PanicInfo| {
+        if let Some(loc) = pinfo.location() {
+            eprintln!("In {}", loc);
+        }
         if let Some(s) = pinfo.payload().downcast_ref::<String>() {
             eprintln!(
                 "A fatal error occurred when executing program: {}",
@@ -412,30 +415,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     //Unpack the asar archive
     rasar::extract(path.to_str().unwrap(), "./coreasar")?;
 
-    //Make a path to the unpacked js file
-    let main_file = PathBuf::from("./coreasar/app/mainScreen.js");
+    let mut archive_file = std::fs::OpenOptions::new().read(true).open(&path)?;
+    let mut archive = asar::Archive::read(&mut archive_file)?; //Open the asar archive and parse it 
+    drop(archive_file);
 
-    //Open the asar electron archive in a buffered reader
-    let mut js = BufReader::new(
-        fs::OpenOptions::new()
-            .read(true)
-            .open(&main_file)
-            .unwrap_or_else(|e| {
-                panic!(
-                    "Failed to open discord asar file from {} Error: {:?}",
-                    main_file.display(),
-                    e
-                )
-            }),
-    );
+    //Open the javascript file
+    let js_file = archive.get_file_mut("app/mainScreen.js").ok_or("Did not find file \"app/mainScreen.js\" in asar archive".to_owned())?;
 
     let mut jsstr = String::new();
-    js.read_to_string(&mut jsstr).unwrap_or_else(|e| {
-        panic!(
-            "Failed to read mainScreen.js file to a string. Error: {}",
-            e
-        )
-    }); //Read the file into a string so that we can put CSS in
+    js_file.read_to_string(&mut jsstr)?; //Read the javascript file to a string
 
     //Finish the first progress bar
     js_prog.finish_with_message(
@@ -516,10 +504,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
     pack_prog.set_message("Re-packing modified Discord archive files...");
 
-    let mainscreenjs = BufWriter::new(fs::File::create(main_file)?); //Open a new buffer writer to write the contents of the file again
-    pack_prog
-        .wrap_write(mainscreenjs)
-        .write_all(jsstr.as_bytes())?; //Write all bytes to the file and track the progress using a progress bar
+    //Replace the contents of the file with the new string with CSS and JS inserted
+    js_file.replace_contents(jsstr.into_bytes().as_mut())?;
+
+
+    drop(js_file); //Drop the javascript file handle
+    let mut archive_file = std::fs::OpenOptions::new().write(true).open(path)?;
+    archive.pack(&mut archive_file, true)?; //Re-pack the Discord asar file
+
+    let mut archive_file = std::fs::OpenOptions::new().write(true).open("./test.asar")?;
+    archive.pack(&mut archive_file, true)?; //Re-pack the Discord asar file
 
     pack_prog.finish_with_message(
         style("Re-packed modified Discord archive, restart Discord for the changes to take effect")
@@ -528,8 +522,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     drop(pack_prog);
-    drop(js);
-    rasar::pack("./coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
+    //rasar::pack("./coreasar", path.to_str().unwrap())?; //Re pack the archive to discord
 
     prompt_quit(0);
 }

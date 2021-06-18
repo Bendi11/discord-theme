@@ -58,6 +58,13 @@ impl FileEntry {
     pub fn size(&self) -> usize {
         self.data.get_ref().len()
     }
+
+    /// Replace the contents of this file with another value that implements `Read`
+    pub fn replace_contents(&mut self, mut c: &[u8]) -> Result<(), Error> {
+        self.data.get_mut().clear(); //Clear the current data
+        io::copy(&mut c, &mut self.data)?;
+        Ok(())
+    }
 }
 
 impl AsRef<[u8]> for FileEntry {
@@ -553,6 +560,10 @@ impl fmt::Display for Error {
             Self::NoFile => write!(f, "The specified file or directory does not exist"),
         }
     }
+}
+
+impl std::error::Error for Error {
+    
 }
 
 mod tests {
