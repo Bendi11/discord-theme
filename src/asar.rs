@@ -9,7 +9,7 @@ use std::{
 };
 
 use console::style;
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 use serde_json::{json, Map, Value};
 
 /// The `FileEntry` struct is contained in the [Entry] enum's [File](Entry::File) variant and contains information about a
@@ -461,11 +461,16 @@ impl Archive {
 
     /// Pack this archive's contents into any type implementing `Write` and `Seek`
     /// This will display progress of packing files, then progress of writing the file
-    pub fn pack<W: Write + Seek>(&self, ar: &mut W, progress: ProgressBar) -> Result<(), Error> {
+    pub fn pack<W: Write + Seek>(&self, ar: &mut W, progressbar: bool) -> Result<(), Error> {
         let mut json = json!({"files": {}}); //Create a new JSON for the header data
         let mut buffer: Cursor<Vec<u8>> = Cursor::new(Vec::new()); //Create a vector to hold the temporarily saved file data
 
         let num_files: u32 = self.data.iter().map(|(_, e)| e.count()).sum(); //Get the total number of files in the archive
+
+        let progress = match progressbar {
+            true => ProgressBar::new(num_files as u64).with_style(ProgressStyle::default_bar().template("{bar} {pos}/{len} - {per_sec} : {msg}")),
+            false => ProgressBar::hidden(),
+        };
         progress.set_length(num_files as u64); //Set the length of the progress bar
 
         let mut offset = 0;
@@ -571,7 +576,6 @@ mod tests {
         //std::fs::write("out.png", &asar.get_file("Banner.png").unwrap()).unwrap();
 
         let mut writer = std::fs::File::create("write.asar").unwrap(); 
-        let progress = ProgressBar::new(0);
-        asar.pack(&mut writer, progress).unwrap();
+        asar.pack(&mut writer, false).unwrap();
     }
 }
