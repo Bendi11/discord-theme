@@ -1,173 +1,261 @@
-//! The `asar` module provides a way to manipulate Electron's .asar archive file format 
+//! The `asar` module provides a way to manipulate Electron's .asar archive file format
 //! using the [Archive] struct
 
-use std::{collections::HashMap, ffi::OsStr, fs::File, io::{self, Read, Seek, SeekFrom, Write}, path::Path};
+use std::{
+    collections::HashMap,
+    fmt,
+    io::{self, Read, Seek, SeekFrom, Write},
+    path::Path,
+};
 
-/// The `Header` struct represents one file or directory in an asar archive's header portion
-enum Header {
-    /// The `Dir` variant contains a list of more entries that the directory contains
-    Dir {
-        /// The name of this directory
-        name: String,
-        /// The files or directories that this directory contains
-        items: HashMap<String, Header>,
-    },
+use serde_json::{Map, Value};
 
-    /// The `File` variant represents a file with information on how to read the file from an archive like offset and file size
-    File {
-        /// The name of the file
-        name: String,
-        /// The offset into the archive file that we must seek to before reading the file
-        off: u64,
+/// The `FileEntry` struct is contained in the [Entry] enum's [File](Entry::File) variant and contains information about a
+/// file's location
+#[derive(Debug)]
+pub struct FileEntry {
+    /// The name of the file
+    name: String,
 
-        /// The size of the file in bytes
-        size: usize,
-    },
+    /// The raw bytes of this file
+    data: Vec<u8>,
 }
 
-impl Header {
-    /// Check if this Entry is a directory
-    pub const fn is_dir(&self) -> bool {
-        matches!(self, Self::Dir{name: _, items: _})
-    }
+/// The `DirEntry` struct is contained in the [Dir](Entry::Dir) variant of the [Entry] enum and contains information like contained
+/// files and directories and name of the dir
+#[derive(Debug)]
+pub struct DirEntry {
+    /// The name of this directory
+    name: String,
+    /// The files or directories that this directory contains
+    items: HashMap<String, Entry>,
+}
 
-    /// Check if this Entry is a file
-    pub const fn is_file(&self) -> bool {
-        matches!(self , Self::File{name: _, off: _, size: _})
-    }
+/// The `Entry` struct represents one file or directory in an asar archive's header portion
+#[derive(Debug)]
+pub enum Entry {
+    /// The `Dir` variant contains a list of more entries that the directory contains
+    Dir(DirEntry),
 
-    /// Return either a file if the Value has both an `offset` and `size` field, or a Dir if the Value is a map of file names to more entries. 
-    /// This is recursive for directories, so calling `from_json` on a dir also populates the dirs entries with data
-    pub fn from_json(name: String, json: &serde_json::Value) -> Result<Self, &'static str> {
-        //Get the json value 
-        let json = match json.as_object() {
-            Some(obj) => obj,
-            None => return Err("The json value passed is not an object"),
-        };
+    /// The `File` variant represents a file with information on how to read the file from an archive like offset and file size
+    File(FileEntry),
+}
 
+impl Entry {
+    /// Read an entry from JSON, either a directory or a file
+    pub fn from_json(
+        name: &String,
+        obj: &Map<String, Value>,
+        file: &mut (impl Read + Seek),
+        header_size: u32,
+    ) -> Result<Self, Error> {
+        //See if this is a file by checking for the 'size' item
+        match obj.get("size") {
+            //This is a file
+            Some(Value::Number(size)) => {
+                let mut data = vec![0u8; size.as_u64().unwrap() as usize]; //Get a vector of bytes to read the file
+                let offset = obj
+                    .get("offset")
+                    .ok_or(Error::InvalidJsonFormat(format!(
+                        "The 'offset' field in file {} is not present",
+                        name
+                    )))?
+                    .as_str()
+                    .ok_or(Error::InvalidJsonFormat(format!(
+                        "The 'offset' field is present in file entry {}, but is not a string",
+                        name
+                    )))?; //Read the string offset
+                let offset: u64 = offset.parse::<u64>().map_err(|e| Error::InvalidJsonFormat(format!("The 'offset' field is present and is a string in file {}, but could not be parsed as an integer value: {}", name, e)))? + header_size as u64; //Get the offset as a number, I hate JS
+                file.seek(SeekFrom::Start(offset))?; //Seek to the offset of the file's data
+                file.read_exact(&mut data)?; //Read the file's bytes from the reader
 
-        //Check if this is a file or not judging by the size and offset fields
-        Ok( match ( json.get("size"), json.get("offset") ) {
-            //Make sure that the offset is a string and the size is a javascript number
-            (Some(size), Some(off)) if size.is_number() && off.is_string() => Self::File {
-                name,
-                off: off.as_str().unwrap().parse().unwrap(),
-                size: size.as_u64().unwrap() as usize,
-            },
-            //Otherwise it must be a directory
-            _ => Self::Dir {
-                name,
-                //Recursively parse headers for all items in this directory
-                items: {
-                    let mut err = Ok(()); //The error that occurred when parsing our descendant nodes
-                    let items = json.into_iter().scan(&mut err , |err, (name, val)| {
-                        //Attempt to parse our children header nodes and check for errors
-                        match Self::from_json(name.clone(), val) {
-                            Ok(contained) => Some((name.clone(), contained)),
-                            Err(e) => {
-                                **err = Err(e); //Set the error level
-                                None //Stop parsing
-                            }
-                        }
-                    } ).collect(); 
-                    err?;
-                    items
-                }
+                Ok(Self::File(FileEntry {
+                    name: name.clone(),
+                    data,
+                }))
             }
-        } )
+            //This is a directory, read all child nodes
+            _ => Ok(Self::Dir(DirEntry {
+                name: name.clone(),
+                items: obj
+                    .get("files")
+                    .ok_or(Error::InvalidJsonFormat(format!("The 'files' object for directory {} does not exist", name)))?
+                    .as_object()
+                    .ok_or(Error::InvalidJsonFormat(format!("The 'files' field exists for directory {}, but is not an object", name)))?
+                    .iter()
+                    .map(|(name, val)| {
+                        let object = val.as_object().ok_or(Error::InvalidJsonFormat(format!(
+                            "The directory {} is present in header JSON but is not an object",
+                            name
+                        )))?;
+                        match Self::from_json(name, object, file, header_size) {
+                            Ok(child) => Ok((name.clone(), child)),
+                            Err(e) => Err(e),
+                        }
+                    })
+                    .collect::<Result<HashMap<String, Self>, Error>>()?,
+            })),
+        }
     }
 
-    /// Get a file from this `Header` if it is a directory and the file exists, otherwise return `None`
-    pub fn get_file(&self, file: &str) -> Option<&Header> {
+    /// Get a file or directory from this entry, returns `None` if `self` is a [File](enum@Entry::File) or if `self` is a [Dir](enum@Entry::Dir) but
+    /// has no entry of that name
+    pub fn get_entry(&self, name: &str) -> Option<&Self> {
         match self {
-            Self::Dir{name: _, items} => items.get(file),
-            _ => None
+            Self::Dir(DirEntry { name: _, items }) => items.get(name),
+            _ => None,
+        }
+    }
+
+    /// Get `self` as a [FileEntry] if `self` is a [File](Entry::File)
+    pub fn as_file(&self) -> Option<&FileEntry> {
+        match self {
+            Self::File(me) => Some(me),
+            _ => None,
+        }
+    }
+
+    /// Get `self` as a [DirEntry] if `self` is a [File](Entry::Dir)
+    pub fn as_dir(&self) -> Option<&DirEntry> {
+        match self {
+            Self::Dir(me) => Some(me),
+            _ => None,
+        }
+    }
+
+    /// Display this directory or file using the given amount of offset tabs for directories
+    fn display(&self, offset: u32, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if offset != 0 {
+            [0..offset].iter().try_for_each(|_| writeln!(f, "\t"))?;
+            write!(f, "|\n - ")?;
+        }
+        match self {
+            Self::File(file) => write!(f, "{} - size: {}", file.name, file.data.len()),
+            Self::Dir(d) => {
+                writeln!(f, "{}", d.name)?;
+                d.items.iter().try_for_each(|(_, entry)| entry.display(offset + 1, f))
+            }
         }
     }
 }
 
-
-/// The `Archive` struct contains all information stored in an asar archive file and methods to both unpack 
-/// an archive into the struct and pack a struct into an archive. The archive is backed by any type that implements 
+/// The `Archive` struct contains all information stored in an asar archive file and methods to both unpack
+/// an archive into the struct and pack a struct into an archive. The archive is backed by any type that implements
 /// Read and Seek. If the backing storage also implements `Write`, then more methods to write files are also availible.
 /// This is commonly a file, and represents the binary data of the asar archive
-pub struct Archive<T: Read + Seek + Sized> {
-    /// The `header` field contains information like the directory layout and sizes of files
-    header: HashMap<String, Header>,
-
-    /// The backing storage that contains all data for the asar archive
-    back: T,
+#[derive(Debug)]
+pub struct Archive {
+    /// The `data` field contains information like the directory layout and sizes of files
+    data: HashMap<String, Entry>,
 }
 
-impl Archive<File> {
+impl Archive {
     /// Open an asar file from the given path and return an `Archive` that contains it as backing storage. Returns errors if any occurred when
     /// parsing the archive or opening the file
     pub fn open(path: impl AsRef<Path>) -> Result<Self, Error> {
-        let asar = std::fs::OpenOptions::new().write(true).read(true).open(path)?; //Open the file from the given path
-        let mut me = Self {
-            back: asar,
-            header: HashMap::new()
-        };
-        me.read_headers()?; //Read the header values and store them
-        Ok(me)
+        let mut asar = std::fs::OpenOptions::new().read(true).open(path)?; //Open the file from the given path
+        Ok(Self {
+            data: Self::read_headers(&mut asar)?,
+        })
+    }
+
+    /// Read two u32s from the beginning 16 bytes, returning the (json size, header size)
+    fn read_sizes(read: &mut (impl Read + Seek)) -> Result<(u32, u32), io::Error> {
+        read.seek(SeekFrom::Start(0))?;
+        let mut buf = [0; 16]; //Make a buffer large enough to hold a two u32s
+        read.read_exact(&mut buf)?; //Read bytes to fill the buffer
+
+        //Read the header size first
+        let mut header_size = [0u8 ; 4];
+        (&buf[4..8]).read_exact(&mut header_size)?;
+        let header_size = u32::from_le_bytes(header_size); //Get a u32 from the bytes
+
+        //Read the json size next
+        let mut json_size = [0u8 ; 4];
+        (&buf[12..]).read_exact(&mut json_size)?;
+        let json_size = u32::from_le_bytes(json_size); //Get a u32 from the bytes
+
+        //let buf = [buf[4], buf[5], buf[6], buf[7]];
+        Ok((json_size, header_size + 8)) //Get a u32 from the data
+    }
+
+    /// Read headers from a file and return a hashmap of directories and file data
+    fn read_headers<R: Read + Sized + Seek>(mut file: R) -> Result<HashMap<String, Entry>, Error> {
+        let (json_size, header_size) = Self::read_sizes(&mut file)?; //Read the header and json size from the file
+
+        file.seek(SeekFrom::Start(16))?; //Skip the rest of the header (why is it 16 bytes?)
+        let mut bytes = vec![0u8; json_size as usize]; //Make a vector for reading the json bytes
+        file.read_exact(&mut bytes)?; //Read the json into the vector of bytes
+
+        let header: Value = serde_json::from_slice(bytes.as_ref())?; //Parse the header as JSON
+        let header = header
+            .get("files")
+            .ok_or(Error::InvalidJsonFormat(
+                "The 'files' object in the JSON header is not present".to_owned(),
+            ))?
+            .as_object()
+            .ok_or(Error::InvalidJsonFormat(
+                "The 'files' field is present in the JSON header, but is not an object".to_owned(),
+            ))?;
+        let mut data = HashMap::new(); //Make a new hashmap for the JSON data
+        for (name, val) in header {
+            data.insert(
+                name.clone(),
+                Entry::from_json(
+                    name,
+                    val.as_object().ok_or(Error::InvalidJsonFormat(format!(
+                        "Value {} in the header is not a JSON object",
+                        name
+                    )))?,
+                    &mut file,
+                    header_size,
+                )?,
+            );
+        }
+        Ok(data)
+    }
+
+    /// Get a [file](FileEntry) using an abosulute path from the root
+    pub fn get_file<P: AsRef<std::path::Path>>(&self, path: P) -> Option<&FileEntry> {
+        let path = path.as_ref();
+        match path.parent() {
+            Some(dir) if dir.as_os_str().len() > 0 => {
+                let mut entry = self
+                    .data
+                    .get(dir.components().next()?.as_os_str().to_str().unwrap())?; //Get the directory at the first path
+                                                                                   //Get all the rest of the directories
+                for part in dir.components().skip(1) {
+                    entry = entry.get_entry(part.as_os_str().to_str().unwrap())?;
+                    //Get the directory
+                }
+                entry
+                    .get_entry(path.file_name().unwrap().to_str().unwrap())?
+                    .as_file()
+            }
+            None | Some(_)=> self.data.get(path.to_str().unwrap())?.as_file(),
+            _ => None,
+        }
     }
 }
 
-impl<T: Read + Seek + Sized> Archive<T> {
-    /// Read one u32 from our backing storage, consuming 4 bytes from it
-    fn read_u32(&mut self) -> Result<u32, io::Error> {
-        let mut buf = [0 ; 4]; //Make a buffer large enough to hold a u32
-        self.back.read_exact(&mut buf)?; //Read bytes to fill the buffer
-        Ok(u32::from_le_bytes(buf)) //Get a u32 from the data
-    }
-
-    /// Read all headers from our asar storage and store them in our `header` field
-    fn read_headers(&mut self) -> Result<(), Error> {   
-        self.back.seek(SeekFrom::Start(0))?; //Seek to the beginning of our storage
-        let header_len = self.read_u32()?; //Read the header size from the beginning of our storage
-        let mut header_json = Vec::with_capacity(header_len as usize); //Create a new vector with the given capacity
-        unsafe { header_json.set_len(header_len as usize); } //Set the len to the capacity, this means the memory is currently uninitialized, so unsafe
-        self.back.read_exact(header_json.as_mut_slice())?; //Read the header bytes from our storage
-
-        let header_json: serde_json::Value = serde_json::from_slice(header_json.as_slice())?; //Parse the JSON header that shows what files are in the archive
-        if !header_json.is_object() {
-            return Err(Error::InvalidJson)
+impl fmt::Display for Archive {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (_, entry) in self.data.iter() {
+            entry.display(0, f)?;
+            write!(f, "\n")?;
         }
-
-        let mut err = Ok(());
-        //Parse all headers from the archive file
-        self.header = header_json.as_object().unwrap().into_iter().scan(&mut err, |err, (name, val)| {
-            match Header::from_json(name.clone(), val) {
-                Ok(ent) => Some( (name.clone(), ent) ),
-                Err(_) => {
-                    **err = Err( Error::InvalidJson );
-                    None
-                }
-            }
-        }).collect();
-        err?; //Check if we had any errors parsing headers
         Ok(())
     }
-
-    /// Read a file contents into a raw buffer using it's path
-    fn raw_file(&mut self, path: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
-        let path = path.as_ref().iter();
-        let mut current = path.next()?;
-        let file = path.iter().fold(initial_state, f)
-    }
-}
-
-/// The `Entry` struct represents one file in the asar archive, and presents a similar API to the `File` type provided by the standard
-/// library. It contains a mutable reference to the asar archive, so only one of these may be held at a time.
-pub struct Entry<'a, T: Read + Seek + Sized> {
-    /// The internal reference to the backing archive that we read from and write to
-    ar: &'a mut Archive<T>, 
 }
 
 /// The `Error` enum represents all errors that can happen when parsing an asar archive
+#[derive(Debug)]
 pub enum Error {
     /// The header JSON failed to be parsed
-    InvalidJson,
+    InvalidJson(serde_json::Error),
+
+    /// The JSON is correct, but something is wrong with the format
+    InvalidJsonFormat(String),
 
     /// Read or write error
     IOErr(io::Error),
@@ -180,8 +268,8 @@ pub enum Error {
 }
 
 impl From<serde_json::Error> for Error {
-    fn from(_: serde_json::Error) -> Self {
-        Self::InvalidJson
+    fn from(e: serde_json::Error) -> Self {
+        Self::InvalidJson(e)
     }
 }
 
@@ -194,5 +282,32 @@ impl From<io::Error> for Error {
 impl From<std::str::Utf8Error> for Error {
     fn from(_: std::str::Utf8Error) -> Self {
         Self::InvalidUTF8
-    }   
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IOErr(err) => write!(f, "IO Error: {}", err),
+            Self::InvalidJson(err) => write!(f, "Invalid header JSON: {}", err),
+            Self::InvalidJsonFormat(err) => write!(f, "Invalid header JSON format: {}", err),
+            Self::InvalidUTF8 => write!(f, "Invalid UTF-8"),
+            Self::NoFile => write!(f, "The specified file or directory does not exist"),
+        }
+    }
+}
+
+
+
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn loading() {
+        let asar = Archive::open("out.asar").unwrap();
+        println!("{}", asar);
+        //println!("File config.rs: {:#?}", asar.get_file("Banner.png"));
+        //panic!();
+        std::fs::write("out.png", &asar.get_file("Banner.png").unwrap().data).unwrap();
+    }
 }

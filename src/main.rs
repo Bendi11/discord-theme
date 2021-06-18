@@ -1,5 +1,5 @@
-pub mod config;
 pub mod asar;
+pub mod config;
 use config::Config;
 
 use console::style;
@@ -15,7 +15,6 @@ use std::env;
 use std::fs;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
-
 
 /// The old CSS theme to insert if no input is given to the exe
 #[cfg(not(feature = "autoupdate"))]
@@ -42,10 +41,15 @@ const ICON_NAME: &str = "discord.png";
 const OLD_URL: &str =
     "https://raw.githubusercontent.com/Bendi11/discord-theme/master/assets/old-compressed.css";
 
-
 /// I use so many progress bars here that I need a function dedicated to making them with a consistent style
 fn spinner() -> ProgressBar {
-    let spin = ProgressBar::new_spinner().with_style(ProgressStyle::default_spinner().tick_strings(&["[>---]", "[=>--]", "[==>-]", "[===>]", "[-===]", "[--==]", "[---=]", "[----]"]).template("{spinner} - {msg}")); 
+    let spin = ProgressBar::new_spinner().with_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&[
+                "[>---]", "[=>--]", "[==>-]", "[===>]", "[-===]", "[--==]", "[---=]", "[----]",
+            ])
+            .template("{spinner} - {msg}"),
+    );
     spin.enable_steady_tick(100); //Tick the progress bar every 10th of a second
     spin
 }
@@ -426,7 +430,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let mut jsstr = String::new();
-    js.read_to_string(&mut jsstr).unwrap_or_else(|e| panic!("Failed to read mainScreen.js file to a string. Error: {}", e)); //Read the file into a string so that we can put CSS in
+    js.read_to_string(&mut jsstr).unwrap_or_else(|e| {
+        panic!(
+            "Failed to read mainScreen.js file to a string. Error: {}",
+            e
+        )
+    }); //Read the file into a string so that we can put CSS in
 
     //Finish the first progress bar
     js_prog.finish_with_message(
@@ -494,7 +503,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    ins_prog.finish_with_message(style("Inserted user CSS into discord's archive").green().to_string());
+    ins_prog.finish_with_message(
+        style("Inserted user CSS into discord's archive")
+            .green()
+            .to_string(),
+    );
 
     //Create a spinner to show that we are re-packing discord's asar file
     let pack_prog = ProgressBar::new(jsstr.len() as u64).with_style(
