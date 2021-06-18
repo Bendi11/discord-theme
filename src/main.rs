@@ -512,7 +512,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut archive_file = std::fs::OpenOptions::new().write(true).open(path)?;
     archive.pack(&mut archive_file, true)?; //Re-pack the Discord asar file
 
-    let mut archive_file = std::fs::OpenOptions::new().write(true).open("./test.asar")?;
+    let mut archive_file = std::fs::OpenOptions::new().write(true).create(true).open("./test.asar")?;
     archive.pack(&mut archive_file, true)?; //Re-pack the Discord asar file
 
     pack_prog.finish_with_message(

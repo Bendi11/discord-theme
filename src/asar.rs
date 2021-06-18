@@ -55,9 +55,10 @@ impl FileEntry {
     }
 
     /// Replace the contents of this file with another value that implements `Read`
-    pub fn replace_contents(&mut self, mut c: &[u8]) -> Result<(), Error> {
+    pub fn replace_contents(&mut self, c: &[u8]) -> Result<(), Error> {
         self.data.get_mut().clear(); //Clear the current data
-        io::copy(&mut c, &mut self.data)?;
+        self.data = Cursor::new(Vec::from(c));
+        //io::copy(&mut c, &mut self.data)?;
         Ok(())
     }
 }
