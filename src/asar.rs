@@ -1,7 +1,12 @@
 //! The `asar` module provides a way to manipulate Electron's .asar archive file format
 //! using the [Archive] struct
 
-use std::{collections::HashMap, fmt, io::{self, Cursor, Read, Seek, SeekFrom, Write}, path::Path};
+use std::{
+    collections::HashMap,
+    fmt,
+    io::{self, Cursor, Read, Seek, SeekFrom, Write},
+    path::Path,
+};
 
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -262,7 +267,12 @@ impl Entry {
 
     /// Write this `Entry`'s metadata to a header JSON structure, and if this `Entry` is a [File](Entry::File), writing the file's data
     /// to the writer
-    fn write<W: Write + Seek>(&self, ar: &mut W, progress: ProgressBar, offset: &mut u32) -> Result<(String, Value), Error> {
+    fn write<W: Write + Seek>(
+        &self,
+        ar: &mut W,
+        progress: ProgressBar,
+        offset: &mut u32,
+    ) -> Result<(String, Value), Error> {
         match self {
             Self::Dir(dir) => {
                 //Start building a JSON value for this
@@ -275,16 +285,16 @@ impl Entry {
                     })
                     .collect::<Result<HashMap<String, Value>, _>>()?,
                 });
-                
+
                 Ok((dir.name.clone(), dir_item))
-            },
+            }
             Self::File(file) => {
                 let file_item = json!({
                     "offset": offset.to_string(),
                     "size": file.size()
-                }); //Make a JSON item for the 
+                }); //Make a JSON item for the
                 *offset += file.size() as u32; //Increment the offset by the amount of bytes written to the vec
-                progress.set_message(format!("Archiving file {}", style(&file.name).yellow())); //Set the message 
+                progress.set_message(format!("Archiving file {}", style(&file.name).yellow())); //Set the message
                 ar.write_all(file.as_ref())?; //Write the file data to the buffer
                 progress.inc(1);
                 Ok((file.name.clone(), file_item))
@@ -292,11 +302,13 @@ impl Entry {
         }
     }
 
-    /// Get the number of files are contained in the directory if `self` is a directory, or 1 if 
+    /// Get the number of files are contained in the directory if `self` is a directory, or 1 if
     /// `self` is a file
     pub fn count(&self) -> u32 {
         match self {
-            Self::Dir(DirEntry{ name: _, items}) => items.iter().map(|(_, item)| item.count()).sum(),
+            Self::Dir(DirEntry { name: _, items }) => {
+                items.iter().map(|(_, item)| item.count()).sum()
+            }
             Self::File(_) => 1,
         }
     }
@@ -471,7 +483,9 @@ impl Archive {
         let num_files: u32 = self.data.iter().map(|(_, e)| e.count()).sum(); //Get the total number of files in the archive
 
         let progress = match progressbar {
-            true => ProgressBar::new(num_files as u64).with_style(ProgressStyle::default_bar().template("{bar} {pos}/{len} - {per_sec} : {msg}")),
+            true => ProgressBar::new(num_files as u64).with_style(
+                ProgressStyle::default_bar().template("{bar} {pos}/{len} - {per_sec} : {msg}"),
+            ),
             false => ProgressBar::hidden(),
         };
         progress.set_length(num_files as u64); //Set the length of the progress bar
@@ -483,15 +497,15 @@ impl Archive {
         }
 
         let mut header = serde_json::to_vec(&json)?; //Save the JSON header as a vector of bytes
-        let json_size = header.len(); //Get the size of the JSON 
+        let json_size = header.len(); //Get the size of the JSON
         let header_size = header.len() + (4 - (header.len() % 4)) % 4; //Get the size of the JSON header and round it up to 4
         header.resize(header_size + 16, 0); //Resize the header to fit the size bytes
 
         header.rotate_right(16); //Rotate the vec so that the JSON comes after the size bytes
         header[0..4].copy_from_slice(&u32::to_le_bytes(4)); //Copy the size bytes
-        header[4..8].copy_from_slice(&u32::to_le_bytes((header_size + 8) as u32)); 
-        header[8..12].copy_from_slice(&u32::to_le_bytes((header_size + 4) as u32)); 
-        header[12..16].copy_from_slice(&u32::to_le_bytes(json_size as u32)); 
+        header[4..8].copy_from_slice(&u32::to_le_bytes((header_size + 8) as u32));
+        header[8..12].copy_from_slice(&u32::to_le_bytes((header_size + 4) as u32));
+        header[12..16].copy_from_slice(&u32::to_le_bytes(json_size as u32));
 
         ar.write_all(header.as_ref())?; //Write the header bytes to the file
         ar.write_all(buffer.into_inner().as_ref())?; //Write the buffer bytes to the file
@@ -504,34 +518,44 @@ impl Archive {
         match path.parent() {
             Some(s) if !s.as_os_str().is_empty() => {
                 let dir = self.get_dir_mut(s)?;
-                dir.items.insert(path.file_name()?.to_str()?.to_string(), item);
+                dir.items
+                    .insert(path.file_name()?.to_str()?.to_string(), item);
                 Some(())
-            },
+            }
             _ => {
-                self.data.insert(path.file_name()?.to_str()?.to_string(), item);
+                self.data
+                    .insert(path.file_name()?.to_str()?.to_string(), item);
                 Some(())
             }
         }
-    }   
+    }
 
     /// Add a file at the specified location
     pub fn add_file<P: AsRef<Path>>(&mut self, path: P) -> bool {
         let path = path.as_ref();
-        self.add_entry(path, Entry::File(FileEntry{
-            name: path.file_name().unwrap().to_str().unwrap().to_owned(),
-            data: Cursor::new(Vec::new())
-        })).is_some()
+        self.add_entry(
+            path,
+            Entry::File(FileEntry {
+                name: path.file_name().unwrap().to_str().unwrap().to_owned(),
+                data: Cursor::new(Vec::new()),
+            }),
+        )
+        .is_some()
     }
 
     /// Add a directory at the specified location
     pub fn add_dir<P: AsRef<Path>>(&mut self, path: P) -> bool {
         let path = path.as_ref();
-        self.add_entry(path, Entry::Dir(DirEntry{
-            name: path.file_name().unwrap().to_str().unwrap().to_owned(),
-            items: HashMap::new()
-        })).is_some()
+        self.add_entry(
+            path,
+            Entry::Dir(DirEntry {
+                name: path.file_name().unwrap().to_str().unwrap().to_owned(),
+                items: HashMap::new(),
+            }),
+        )
+        .is_some()
     }
-        
+
     /// Return a new `Archive` with no entries
     pub fn new() -> Self {
         Self {
@@ -599,9 +623,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {
-    
-}
+impl std::error::Error for Error {}
 
 mod tests {
     #[allow(unused_imports)]
@@ -622,12 +644,12 @@ mod tests {
         println!("{}", archive);
         let file = archive.get_file_mut("test/test.txt").unwrap();
         file.write_fmt(format_args!("Testing!")).unwrap();
-        
+
         //println!("File config.rs: {:#?}", asar.get_file("Banner.png"));
         //panic!();
         //std::fs::write("out.png", &asar.get_file("Banner.png").unwrap()).unwrap();
 
-        let mut writer = std::fs::File::create("write.asar").unwrap(); 
+        let mut writer = std::fs::File::create("write.asar").unwrap();
         archive.pack(&mut writer, false).unwrap();
     }
 }

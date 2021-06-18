@@ -413,11 +413,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     js_prog.set_message("Unpacking Discord's archive files...");
 
     let mut archive_file = std::fs::OpenOptions::new().read(true).open(&path)?;
-    let mut archive = asar::Archive::read(&mut archive_file)?; //Open the asar archive and parse it 
+    let mut archive = asar::Archive::read(&mut archive_file)?; //Open the asar archive and parse it
     drop(archive_file);
 
     //Open the javascript file
-    let js_file = archive.get_file_mut("app/mainScreen.js").ok_or("Did not find file \"app/mainScreen.js\" in asar archive".to_owned())?;
+    let js_file = archive
+        .get_file_mut("app/mainScreen.js")
+        .ok_or_else(|| "Did not find file \"app/mainScreen.js\" in asar archive".to_owned())?;
 
     let mut jsstr = String::new();
     js_file.read_to_string(&mut jsstr)?; //Read the javascript file to a string
@@ -504,8 +506,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     //Replace the contents of the file with the new string with CSS and JS inserted
     js_file.replace_contents(jsstr.into_bytes().as_mut())?;
 
-
-    drop(js_file); //Drop the javascript file handle
     let mut archive_file = std::fs::OpenOptions::new().write(true).open(path)?;
     archive.pack(&mut archive_file, true)?; //Re-pack the Discord asar file
 

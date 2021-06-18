@@ -55,14 +55,23 @@ impl Config {
 
                 Self {
                     //Get the custom javascript and escape the '`' character so that javascript insertion is not messed up
-                    customjs: config.get("custom-js")
+                    customjs: config
+                        .get("custom-js")
                         .unwrap_or(&toml::Value::String("".to_owned()))
                         .as_str()
                         .unwrap_or("")
                         .replace("`", "\\`") //Escape any characters that would mess up Discord's files
                         .replace("\\", "\\\\"),
-                    make_backup: config.get("make-backup").unwrap_or(&toml::Value::Boolean(true)).as_bool().unwrap_or(true), //Get wether or not to make a backup of the electron file
-                    replace_icon: config.get("replace-icon").unwrap_or(&toml::Value::Boolean(true)).as_bool().unwrap_or(true),
+                    make_backup: config
+                        .get("make-backup")
+                        .unwrap_or(&toml::Value::Boolean(true))
+                        .as_bool()
+                        .unwrap_or(true), //Get wether or not to make a backup of the electron file
+                    replace_icon: config
+                        .get("replace-icon")
+                        .unwrap_or(&toml::Value::Boolean(true))
+                        .as_bool()
+                        .unwrap_or(true),
                 }
             }
             Err(_) => {
