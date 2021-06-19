@@ -4,12 +4,12 @@
     background-color: #6f87df95; /*This sets the hover color for @mentions*/
 }
 
-/*This is the green portion of the 'Automatically Determine Input Sensitivity' slider*/
+/*The green portion of the 'Automatically Determine Input Sensitivity' slider*/
 .bar-2Qqk5Z[style] {
     background: #69c49a !important; /*Mute the green again, override the inline HTML style attribute*/
 }
 
-/*This is the Add Friend button color*/
+/*The Add Friend button color*/
 .item-3HknzM[style] {
     background-color: #41b681 !important; /*Mute the green color of the add friend button*/ 
 }
@@ -34,41 +34,44 @@
     background-color: #4dd196; /*The green color that is now more muted*/
 }
 
-
+/*The main item that new colors were applied to*/
 [data-popout-root].newBrand, html.newBrand {
-    --brand-experiment: #6f88df; /*This is the primary color like the background for the logo*/
-    --brand-experiment-560: #7289da; /*This is the background color for buttons like server management, it is very common*/
+    --brand-experiment: #6f88df; /*The primary color like the background for the logo*/
+    --brand-experiment-560: #7289da; /*The background color for buttons like server management, it is very common*/
     --brand-experiment-500: #445389; /*Not exactly sure what this does...*/
-    --brand-experiment-30a: #3b3f4c; /*This is the annoying background color for @mentions*/
-    --brand-experiment-200: #6c81ca; /*This is the text color for @mentions*/
-    --brand-experiment-360: #8188d3; /*This is the text for the Invite People button*/
-    --brand-experiment-15a: #3c4560; /*This is the background color for reactions that you have reacted with*/
-    --brand-experiment-600: #7288d9; /*This is the background color of a button when you click it*/
+    --brand-experiment-30a: #3b3f4c; /*The annoying background color for @mentions*/
+    --brand-experiment-200: #6c81ca; /*The text color for @mentions*/
+    --brand-experiment-360: #8188d3; /*The text for the Invite People button*/
+    --brand-experiment-15a: #3c4560; /*The background color for reactions that you have reacted with*/
+    --brand-experiment-600: #7288d9; /*The background color of a button when you click it*/
+    --font-display: "Uni Sans Heavy","Helvetica Neue",Helvetica,Arial,sans-serif; /*The only thing I was able to definitively tell is that the first item is the 
+    header font for channel names, if anyone can figure this out please update this comment*/
+    
 }
 
-/*This defines the ugly border and background colors for the new reactions that the user has used*/
+/*Defines the ugly border and background colors for the new reactions that the user has used*/
 .reaction-1hd86g.reactionMe-wv5HKu {
     border-color: rgba(0, 0, 0, 0); /*Make the border around reactions transparent / invisible*/
 }
 
-/*This is general attributes for a reaction*/
+/*General attributes for a reaction*/
 .reaction-1hd86g {
     border-radius: .3rem; /*Change the reaction squares to be more non circular*/
 }
 
-/*This is reaction colors when hovering*/
+/*Reaction colors when hovering*/
 .reaction-1hd86g:hover {
     border-color: rgba(0,0,0,0); /*Make the border invisible*/
 }
 
-/*This is the clyde svg image that we will change to be the old clyde*/
+/*The clyde svg image that we will change to be the old clyde*/
 .childWrapper-anI2G9 .homeIcon-FuNwkv path {
-    transform: scale(0.0119, -0.0115) translate(2478px, 164px) rotate(180deg);
+    transform: scale(0.0119, -0.0115) translate(2478px, 164px) rotate(180deg); /*Rotate the svg image and scale it to fit*/
     d: path( "M553 1993 c-13 -2 -23 -8 -23 -13 0 -4 -12 -11 -27 -15 -70 -17 -183 -69 -188 -86 -3 -10 -16 -21 -27 -25 -37 -12 -178 -153 -199 -204 -18 -40 -20 -58 -14 -155 22 -380 132 -889 236 -1097 16 -32 29 -65 29 -74 0 -27 52 -91 98 -120 24 -15 52 -36 64 -46 11 -10 36 -23 54 -30 19 -7 34 -15 34 -19 0 -18 272 -81 358 -83 51 -1 57 1 71 27 14 24 14 29 1 37 -8 5 -25 10 -37 10 -13 0 -23 4 -23 8 0 4 -31 16 -70 26 -38 10 -70 21 -70 24 0 9 -91 42 -114 42 -23 0 -132 56 -156 80 -30 30 -27 85 6 107 25 16 28 16 74 -10 26 -15 57 -27 69 -27 12 0 21 -5 21 -11 0 -35 147 -92 325 -126 121 -23 349 -23 470 0 172 33 325 91 325 123 0 5 24 22 54 38 52 28 55 29 80 12 34 -21 36 -76 5 -107 -23 -23 -165 -93 -211 -104 -16 -4 -28 -11 -28 -15 0 -5 -31 -16 -70 -26 -38 -10 -70 -22 -70 -26 0 -4 -10 -8 -22 -8 -13 0 -30 -5 -38 -10 -13 -8 -13 -13 0 -37 20 -36 54 -40 163 -18 92 19 239 63 247 75 3 4 20 15 39 25 19 9 43 26 55 36 11 11 38 25 59 31 43 13 117 89 117 120 0 10 11 40 24 66 108 213 219 721 241 1107 6 97 4 115 -14 155 -21 49 -162 192 -199 204 -11 4 -24 15 -27 25 -5 17 -96 61 -126 61 -25 0 -113 32 -121 44 -4 6 -54 12 -120 14 l-113 4 -37 -56 c-21 -31 -38 -63 -38 -71 0 -7 -5 -17 -10 -20 -17 -10 -3 -22 34 -29 19 -4 36 -10 38 -14 2 -4 30 -18 63 -31 73 -28 205 -101 205 -113 0 -4 11 -18 25 -30 41 -36 29 -98 -20 -98 -11 0 -47 18 -80 40 -32 21 -72 45 -87 51 -15 6 -28 15 -28 20 0 5 -7 9 -15 9 -8 0 -15 4 -15 10 0 14 -178 68 -282 85 -120 19 -356 19 -476 0 -104 -17 -282 -71 -282 -85 0 -6 -7 -10 -15 -10 -8 0 -15 -4 -15 -10 0 -5 -9 -10 -20 -10 -26 0 -71 -23 -133 -66 -49 -35 -84 -43 -105 -22 -20 20 -14 63 13 86 14 12 25 26 25 30 0 11 137 88 170 96 61 16 130 41 130 48 0 4 16 10 35 14 38 7 52 19 35 29 -5 3 -10 13 -10 20 0 8 -17 40 -37 70 l-37 55 -111 -1 c-60 -1 -120 -4 -132 -6z m441 -633 c27 0 104 -88 118 -135 17 -55 13 -157 -6 -196 -9 -18 -16 -38 -16 -45 0 -17 -66 -73 -96 -80 -44 -11 -112 2 -146 29 -51 39 -82 127 -76 219 5 74 19 110 61 161 26 31 91 59 122 52 11 -3 28 -5 39 -5z m693 -14 c32 -16 81 -83 93 -125 28 -101 -4 -240 -68 -288 -34 -27 -102 -40 -146 -29 -30 7 -96 63 -96 80 0 7 -7 27 -16 45 -19 39 -23 142 -6 196 17 55 80 125 123 135 38 9 82 4 116 -14z");
 }
 
 /*
-These are all defaults left unchanged from the great corporate color mess up. but I included them just in case Discord 
+All defaults left unchanged from the great corporate color mess up. but I included them just in case Discord 
 decides to change the colors in the future
 */
 .theme-dark {
