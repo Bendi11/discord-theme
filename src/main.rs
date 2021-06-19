@@ -42,14 +42,16 @@ const OLD_URL: &str =
     "https://raw.githubusercontent.com/Bendi11/discord-theme/master/assets/old-compressed.css";
 
 /// I use so many progress bars here that I need a function dedicated to making them with a consistent style
-fn spinner() -> ProgressBar {
-    let spin = ProgressBar::new_spinner().with_style(
-        ProgressStyle::default_spinner()
-            .tick_strings(&[
-                "[>---]", "[=>--]", "[==>-]", "[===>]", "[-===]", "[--==]", "[---=]", "[----]",
-            ])
-            .template("{spinner} - {msg}"),
-    );
+fn spinner<D: Into<std::borrow::Cow<'static, str>>>(msg: D) -> ProgressBar {
+    let spin = ProgressBar::new_spinner()
+        .with_style(
+            ProgressStyle::default_spinner()
+                .tick_strings(&[
+                    "[>---]", "[=>--]", "[==>-]", "[===>]", "[-===]", "[--==]", "[---=]", "[----]",
+                ])
+                .template("{spinner} - {msg}"),
+        )
+        .with_message(msg);
     spin.enable_steady_tick(100); //Tick the progress bar every 10th of a second
     spin
 }
@@ -339,8 +341,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 #[cfg(feature = "autoupdate")]
                 //Download the most recent version of the theme from github
                 0 => {
-                    let dlprog = spinner(); //Create a spinner to show download progress
-                    dlprog.set_message(format!("Downloading most recent theme file from {}...", OLD_URL));
+                    let dlprog = spinner(
+                        console::truncate_str("Downloading most recent theme file from https://raw.githubusercontent.com/Bendi11/discord-theme/master/assets/old-compressed.css", console::Term::stdout().size().0 as usize, "...")
+                    ); //Create a spinner to show download progress
 
                     //Download the newest version of the theme from github
                     let text = ureq::get(OLD_URL)
@@ -409,8 +412,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     path.push("core.asar"); //Push the core archive file name to the path
 
     //Create a spinner to show that we are reading Discord's files
-    let js_prog = spinner();
-    js_prog.set_message("Unpacking Discord's archive files...");
+    let js_prog = spinner("Unpacking Discord's archive files...");
 
     let mut archive_file = std::fs::OpenOptions::new().read(true).open(&path)?;
     let mut archive = asar::Archive::read(&mut archive_file)?; //Open the asar archive and parse it
@@ -432,8 +434,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     //Create a spinner to show that we are doing the search and replace for the custom CSS theme
-    let ins_prog = spinner();
-    ins_prog.set_message("Inserting CSS theme into Discord's archive...");
+    let ins_prog = spinner("Inserting CSS theme into Discord's archive...");
 
     //If the injection string is already in the asar archive then don't replace anything but the user CSS
     match jsstr.find("CSS_INJECTION_USER_CSS") {
@@ -497,17 +498,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     //Create a spinner to show that we are re-packing discord's asar file
-    let pack_prog = ProgressBar::new(jsstr.len() as u64).with_style(
-        ProgressStyle::default_bar()
-            .template("{bar} {bytes}/{total_bytes} - {binary_bytes_per_sec}: {msg}"),
-    );
-    pack_prog.set_message("Re-packing modified Discord archive files...");
+    let pack_prog = ProgressBar::new(jsstr.len() as u64)
+        .with_style(
+            ProgressStyle::default_bar()
+                .template("[{bar}] {bytes}/{total_bytes} - {binary_bytes_per_sec}: {msg}")
+                .progress_chars("=>."),
+        )
+        .with_message("Re-packing modified Discord archive files...");
 
     //Replace the contents of the file with the new string with CSS and JS inserted
     js_file.replace_contents(jsstr.into_bytes().as_mut())?;
 
-    let mut archive_file = std::fs::OpenOptions::new().write(true).open(path)?;
-    archive.pack(&mut archive_file, true)?; //Re-pack the Discord asar file
+    let archive_file = std::fs::OpenOptions::new().write(true).open(path)?;
+    archive.pack(&mut pack_prog.wrap_write(archive_file), true)?; //Re-pack the Discord asar file
 
     pack_prog.finish_with_message(
         style("Re-packed modified Discord archive, restart Discord for the changes to take effect")

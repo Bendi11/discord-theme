@@ -484,11 +484,12 @@ impl Archive {
 
         let progress = match progressbar {
             true => ProgressBar::new(num_files as u64).with_style(
-                ProgressStyle::default_bar().template("{bar} {pos}/{len} - {per_sec} : {msg}"),
+                ProgressStyle::default_bar()
+                    .template("[{bar}] {pos}/{len} files - {per_sec}: {msg}")
+                    .progress_chars("=>."),
             ),
             false => ProgressBar::hidden(),
         };
-        progress.set_length(num_files as u64); //Set the length of the progress bar
 
         let mut offset = 0;
         for (_, entry) in self.data.iter() {
@@ -506,9 +507,11 @@ impl Archive {
         header[4..8].copy_from_slice(&u32::to_le_bytes((header_size + 8) as u32));
         header[8..12].copy_from_slice(&u32::to_le_bytes((header_size + 4) as u32));
         header[12..16].copy_from_slice(&u32::to_le_bytes(json_size as u32));
+        progress.finish_with_message("Re-packed archive!");
 
         ar.write_all(header.as_ref())?; //Write the header bytes to the file
         ar.write_all(buffer.into_inner().as_ref())?; //Write the buffer bytes to the file
+
         Ok(())
     }
 
