@@ -1,5 +1,4 @@
 /target
-config.toml
+/config.json
 *.exe
-coreasar
 pre-update.css

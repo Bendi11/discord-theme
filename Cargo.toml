@@ -1,18 +1,17 @@
 [package]
 name = "discord-theme"
-version = "1.0.1"
+version = "1.1.0"
 authors = ["Bendi11 <bkliebmann@gmail.com>"]
 edition = "2018"
 
 
 [dependencies]
-toml = "0.5.8" # For config file format
 console = "0.14.1" # For color formatted console
-indicatif = "0.16" # For progress bars with file operations
 dialoguer = "0.8" # For selection menus when no arguments are given
+indicatif = "0.16" # For progress bars with file operations
 
 serde_json = "1.0" # For parsing Discord's electron archive
-ureq = {version = "2.1.1", optional = true} # For downloading the most up to date css stylesheet from Github
+ureq = {version = "2.1", optional = true} # For downloading the most up to date css stylesheet from Github
 semver = "0.11" # For parsing the newest discord version string and selecting the newest Discord version
 
 
