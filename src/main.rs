@@ -278,7 +278,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let patch_text = "Download the latest old theme from Github and apply it do Discord";
 
             #[cfg(not(feature = "autoupdate"))]
-            let patch_text = "Apply the default old theme that the program was compiled with";
+            let patch_text = format!("Apply the default old theme that the program was compiled with (last updated {})", env!("COMPILEDATE", "build.rs did not run properly, no compile date set"));
             
             //Make a menu for selecting what the user wants to do
             let selection = Select::with_theme(&ColorfulTheme {
