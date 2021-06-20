@@ -63,7 +63,7 @@ fn get_discord_root() -> PathBuf {
     let path = PathBuf::from(format!(
         "{}\\Discord",
         env::var("LOCALAPPDATA")
-            .expect("LOCALAPPDATA environment variable not present... something is wrong")
+            .expect("LOCALAPPDATA environment variable is not present but you are running on a windows system. If you are using wine or similar on linux, please download the linux version of this program")
     )); //Get the path to discord's modules directory
 
     #[cfg(target_os = "macos")]
@@ -524,5 +524,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
-    run().unwrap()
+    match run() {
+        Ok(()) => (),
+        Err(e) => panic!("{}", e) 
+    }
 }
