@@ -35,13 +35,8 @@ There are two methods to use a custom style sheet for Discord's theme:
 #### BetterDiscord `.theme.css` files are not compatible with this program and may break your Discord (backups can still be restored if this happens)
 
 # Using custom Javascript
-If you know what you're doing, the config file will allow you to insert custom javascript along with the CSS theme. To start, run the application once without arguments and quit it. A `config.toml` file should've been created in the same directory as the program. 
-Just edit the `custom-js` parameter and your new javascript will be inserted. If you aren't familiar with TOML, multiline strings be done with three sequential double quotes:
-```toml
-custom-js = """
-**Your javascript here**
-"""
-```
+If you know what you're doing, the config file will allow you to insert custom javascript along with the CSS theme. To start, run the application once without arguments and quit it. A `config.json` file should've been created in the same directory as the program. 
+Just change the `custom-js` parameter from `null` to a path to your javascript file.
 
 ## Note on automatically downloading the latest theme from Github
 If you decide that you don't want / trust the program downloading CSS from github and inserting it into your Discord whenever there is an update, compile using the command: 
