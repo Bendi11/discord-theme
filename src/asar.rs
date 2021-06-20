@@ -628,16 +628,10 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+#[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
-    use std::io::Write;
-
-    #[allow(unused_imports)]
-    use indicatif::ProgressBar;
-
-    //This is a bug, I need to import items for the program to compile
-    #[allow(unused_imports)]
     use super::Archive;
+    use std::io::Write;
 
     #[test]
     pub fn loading() {
