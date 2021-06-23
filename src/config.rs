@@ -53,7 +53,7 @@ impl Config {
                             return Self::default_file();
                         } //Return a default file if there was an error
                     };
-                
+
                 // Get path to the custom javascript file or null
                 let customjs = config
                     .get("custom-js")
@@ -63,13 +63,14 @@ impl Config {
                 //Read the file from the path or an empty string
                 let customjs = match customjs {
                     Some(path) => match fs::read_to_string(path) {
-                        Ok(s) => s.replace("`", "\\`") //Escape any characters that would mess up Discord's files
+                        Ok(s) => s
+                            .replace("`", "\\`") //Escape any characters that would mess up Discord's files
                             .replace("\\", "\\\\"),
                         Err(e) => panic!("Failed to open custom javscript file {}: {}", path, e),
                     },
-                    None => "".to_owned()
+                    None => "".to_owned(),
                 };
-    
+
                 Self {
                     customjs,
                     make_backup: config

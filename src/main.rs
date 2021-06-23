@@ -144,8 +144,37 @@ fn get_discord_dir(mut root: PathBuf) -> PathBuf {
         style(root.display()).cyan()
     );
 
-    root.push("modules/discord_desktop_core-1/discord_desktop_core"); //Push the path to the discord core module folder
-    root
+    root.push("modules"); //Go to the modules directory
+
+    //Because of the new update, both discord_desktop_core-1 and discord_desktop_core-2 are possible, so search for the highest number
+    let (_, mut max_path) = match fs::read_dir(root) {
+        //Filter the directories so that we only get the discord_desktop_core ones
+        Ok(dir) => dir
+            .filter_map(|entry| match entry {
+                Ok(entry) => {
+                    let name = entry.file_name();
+                    let name = name.to_str()?; //Get the directory name as a string
+                    if name.starts_with("discord_desktop_core-") {
+                        return Some((
+                            name.strip_prefix("discord_desktop_core-")?
+                                .parse::<u8>()
+                                .ok()?,
+                            entry.path(),
+                        )); //Return the directory number as an integer
+                    }
+                    None
+                }
+                Err(_) => None,
+            })
+            .max_by(|(prev_num, _), (this_num, _)| prev_num.cmp(this_num))
+            .unwrap_or_else(|| panic!("Failed to find an appropriate discord_desktop_core folder")),
+        Err(e) => panic!(
+            "Failed to read an appropriate discord_desktop_core folder: {}",
+            e
+        ),
+    };
+    max_path.push("discord_desktop_core");
+    max_path
 }
 
 /// Replace the `app.ico` on windows or `app.png` on linux / mac with the old blurple clyde icon that is embedded in this executable
@@ -526,6 +555,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 fn main() {
     match run() {
         Ok(()) => (),
-        Err(e) => panic!("{}", e) 
+        Err(e) => panic!("{}", e),
     }
 }
