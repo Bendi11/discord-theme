@@ -34,8 +34,11 @@
     background-color: #4dd196; /*The green color that is now more muted*/
 }
 
-/*The main item that new colors were applied to*/
-[data-popout-root].newBrand, html.newBrand {
+/*
+The main item that new colors were applied to
+NOTE: This used to be html.newBrand, but then Discord changed it back to html
+*/
+[data-popout-root], html {
     --brand-experiment: #6f88df; /*The primary color like the background for the logo*/
     --brand-experiment-560: #7289da; /*The background color for buttons like server management, it is very common*/
     --brand-experiment-500: #445389; /*Not exactly sure what this does...*/
